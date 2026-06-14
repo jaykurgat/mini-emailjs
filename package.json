@@ -1,0 +1,17 @@
+{
+  "name": "mini-emailjs",
+  "version": "1.0.0",
+  "description": "A self-hosted, multi-tenant transactional email API for website contact forms. Send form-submission notifications via Resend, with per-project API keys, origin allowlisting, honeypot spam protection, and rate limiting. Deploys as Vercel serverless functions.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "create-project": "node --env-file=.env scripts/create-project.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "nodemailer": "^6.9.14"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
