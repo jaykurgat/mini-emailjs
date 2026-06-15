@@ -50,6 +50,50 @@ that client — Resend by default, or their own Gmail/SMTP if they prefer to
 
 ---
 
+## Dashboard
+
+This platform includes a simple web dashboard — no CLI required for
+day-to-day use. Once deployed, visit:
+
+```
+https://your-deployment.vercel.app/
+```
+
+You'll be asked for a password (set via `DASHBOARD_PASSWORD`, see Setup
+below). From there:
+
+- **Projects list** — every site/client you've connected, with status at a
+  glance
+- **+ New Project** — a form covering everything the old CLI asked for:
+  name, recipient email, provider (Resend or your own Gmail/SMTP), subject
+  template, allowed origins, rate limit. SMTP fields (host/port/user/app
+  password) appear automatically when you choose "My own Gmail / SMTP"
+- **Project detail page** — shows the API endpoint and key (with copy
+  buttons), a ready-to-paste embed code snippet, current settings, live
+  submission counts (sent/blocked/errors), and a table of recent
+  submissions
+- **Regenerate API key** — if a key leaks, generate a new one in one click
+  (old one stops working immediately)
+- **Delete project** — removes the project and its submission history
+
+The dashboard is intentionally single-user in this version (v1) — see
+[Roadmap](#roadmap--v2-ideas) for the planned multi-user version. The
+`scripts/create-project.js` CLI still works if you prefer it, but the
+dashboard is the recommended way to manage projects now.
+
+### v1 authentication model (and what changes in v2)
+
+v1 uses a single shared password (`DASHBOARD_PASSWORD`) and a signed session
+cookie — there's only one "user" (you), referenced internally as `owner`.
+Every project row has a `user_id` column already set to `'owner'`, and every
+dashboard API route filters by it. This means the planned v2 (real per-user
+accounts via Supabase Auth, so clients could eventually have their own
+logins) is an additive change — swap the auth check in `lib/auth.js` for a
+real session lookup, and the rest of the app (which already filters by
+`user_id`) requires no changes.
+
+---
+
 ## Setup (one-time)
 
 ### 1. Create a Supabase project
@@ -90,7 +134,11 @@ git push -u origin main
    | `SUPABASE_URL` | from step 1 |
    | `SUPABASE_SERVICE_ROLE_KEY` | from step 1 |
    | `RESEND_API_KEY` | from step 2 |
+   | `DASHBOARD_PASSWORD` | a strong password of your choosing — this is what you'll type in at `/login.html` |
+   | `DASHBOARD_SESSION_SECRET` | any long random string (e.g. generate one with `openssl rand -hex 32`) — used to sign session cookies |
 3. Deploy. You'll get a URL like `https://mini-emailjs.vercel.app`
+4. Visit that URL — you'll land on the login page. Enter the
+   `DASHBOARD_PASSWORD` you set above to access the dashboard.
 
 ---
 
@@ -112,7 +160,8 @@ EmailJS + Gmail, just self-hosted.
    https://myaccount.google.com/security
 2. Generate an **App Password**: https://myaccount.google.com/apppasswords
    — choose "Mail" as the app, copy the 16-character password
-3. When running `npm run create-project`, choose provider `smtp` and enter:
+3. In the dashboard's **"+ New Project"** form (or `npm run create-project`
+   if using the CLI), choose provider **"My own Gmail / SMTP"** and enter:
    - **host**: `smtp.gmail.com`
    - **port**: `465`
    - **user**: the full Gmail address (e.g. `jaykurgat@gmail.com`)
@@ -131,12 +180,23 @@ EmailJS + Gmail, just self-hosted.
 The provider system is pluggable — see `lib/providers/index.js`. To add
 SendGrid, Postmark, Mailgun, etc., create `lib/providers/your-provider.js`
 exporting `sendEmail()` and `configSchema`, then register it in the
-`providers` map. No changes needed to the API handler or CLI — both adapt
-automatically based on `configSchema`.
+`providers` map. The dashboard's "New Project" form and the CLI both adapt
+automatically based on `configSchema` — no UI changes needed.
 
 ---
 
 ## Creating a project (per client/website)
+
+### Option A — Dashboard (recommended)
+
+1. Visit your deployment's URL and log in with `DASHBOARD_PASSWORD`
+2. Click **"+ New Project"**
+3. Fill in the form (name, recipient email, provider, etc.) — see
+   [Email providers](#email-providers) above for SMTP/Gmail field details
+4. Click **Create Project** — you'll land on the project page with the API
+   endpoint, API key, and a ready-to-paste embed snippet
+
+### Option B — CLI (alternative)
 
 Run the CLI locally (it talks directly to Supabase using your service role key):
 
@@ -151,7 +211,7 @@ npm install
 npm run create-project
 ```
 
-You'll be asked for:
+Either way (dashboard or CLI), you'll provide:
 - **Project name** — e.g. "ApexOps Website"
 - **Project ID / slug** — used in the API URL, e.g. `apexops`
 - **Recipient email** — where notifications go, e.g. `jaykurgat@gmail.com`
@@ -168,8 +228,10 @@ You'll be asked for:
   (fine for testing, tighten before going live).
 - **Rate limit** — max submissions per IP per hour (default 20)
 
-The script outputs your **Project ID** and **API Key** — save these. The API
-key is shown only once (though it's also stored in the database if you need
+In the dashboard, the **Project** page shows your **Project ID** and **API
+Key** with copy buttons, plus a ready-to-paste embed snippet — no need to
+note anything down manually. The CLI prints the same info to the terminal;
+the API key is shown only once there (though it's also stored in the database if you need
 to look it up later via the Supabase dashboard).
 
 ---
@@ -272,8 +334,12 @@ plus metadata (project name, submission time, IP address).
 
 ## Viewing submission history
 
-All submissions (sent, blocked, and errored) are logged to the `submissions`
-table in Supabase. View them via:
+The easiest way: open a project in the **dashboard** — it shows submission
+counts (sent/blocked/errors) and a table of the most recent submissions
+(timestamp, status, sender, field preview).
+
+For deeper inspection, all submissions are also logged to the `submissions`
+table in Supabase:
 
 - **Supabase Dashboard → Table Editor → submissions**, or
 - SQL query, e.g. recent submissions for a project:
@@ -285,9 +351,6 @@ table in Supabase. View them via:
   limit 50;
   ```
 
-A web dashboard for this is a natural v2 addition — not included in v1 to
-keep the initial build lean.
-
 ---
 
 ## Project structure
@@ -295,12 +358,25 @@ keep the initial build lean.
 ```
 mini-emailjs/
 ├── api/
-│   └── send/
-│       └── [projectId].js   ← the core API endpoint (Vercel serverless function)
+│   ├── send/
+│   │   └── [projectId].js        ← public endpoint forms call to send email
+│   ├── auth/
+│   │   ├── login.js                ← dashboard login (checks DASHBOARD_PASSWORD)
+│   │   ├── logout.js                ← clears the session cookie
+│   │   └── session.js                ← checks if the current session is valid
+│   ├── projects/
+│   │   ├── index.js                 ← list / create projects (dashboard)
+│   │   ├── [projectId].js            ← get / update / delete a project
+│   │   └── [projectId]/
+│   │       ├── submissions.js          ← list a project's submission history
+│   │       └── regenerate-key.js        ← rotate a project's API key
+│   └── providers.js                ← exposes provider config schemas (for the New Project form)
 ├── lib/
 │   ├── supabase.js          ← Supabase client (service role)
-│   ├── render.js             ← email template rendering + HTML body builder
-│   ├── rateLimit.js          ← per-IP rate limiting
+│   ├── auth.js                ← session cookie creation/verification (v1: single password)
+│   ├── projects.js             ← centralized data access for projects/submissions (user_id-scoped)
+│   ├── render.js                ← email template rendering + HTML body builder
+│   ├── rateLimit.js               ← per-IP rate limiting
 │   └── providers/
 │       ├── index.js          ← provider registry + dispatcher
 │       ├── resend.js          ← Resend provider (platform-wide API key)
@@ -308,9 +384,15 @@ mini-emailjs/
 ├── sql/
 │   └── schema.sql            ← Supabase table definitions (run once)
 ├── scripts/
-│   └── create-project.js     ← CLI to register new projects (asks for provider)
+│   └── create-project.js     ← CLI to register new projects (alternative to dashboard)
 ├── public/
-│   └── demo.html              ← working example form
+│   ├── login.html             ← dashboard login page
+│   ├── index.html               ← dashboard home (project list)
+│   ├── new-project.html          ← "+ New Project" form
+│   ├── project.html               ← project detail (API key, embed code, submissions)
+│   ├── dashboard.css                ← shared dashboard styles
+│   ├── dashboard.js                  ← shared dashboard JS helpers (api(), toast, etc.)
+│   └── demo.html              ← working example form (for embedding on client sites)
 ├── .env.example
 ├── vercel.json
 ├── package.json
@@ -321,13 +403,27 @@ mini-emailjs/
 
 ## Roadmap / v2 ideas
 
-- Web dashboard (view submissions, create/edit projects without SQL)
+**Done (v1):**
+- ✅ Web dashboard (project list, create/edit via form, submission viewer)
+- ✅ API key rotation via dashboard ("Regenerate" button)
+- ✅ Pluggable provider system (Resend + SMTP/Gmail, extensible)
+
+**Planned (v2) — multi-user / self-service:**
+- Real per-user accounts (Supabase Auth) replacing the single shared password
+- Every `projects`/`submissions` query already filters by `user_id` — v2
+  swaps `lib/auth.js`'s session check for real per-user sessions; the rest
+  of the app needs no changes
+- Per-user signup, so clients could eventually create and manage their own
+  projects independently
+- Usage quotas per user (especially relevant if multiple users share the
+  platform's Resend account)
+
+**Other ideas (either version):**
 - Email template editor with HTML preview
 - Multiple recipients per project (CC/BCC)
 - File attachment support
 - Webhook on submission (e.g. forward to Slack/Discord)
 - Per-project custom "from" domains
-- API key rotation via CLI
 
 ---
 

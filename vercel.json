@@ -2,6 +2,21 @@
   "functions": {
     "api/send/[projectId].js": {
       "maxDuration": 10
+    },
+    "api/projects/[projectId]/submissions.js": {
+      "maxDuration": 10
+    },
+    "api/projects/[projectId]/regenerate-key.js": {
+      "maxDuration": 10
+    },
+    "api/projects/[projectId].js": {
+      "maxDuration": 10
+    },
+    "api/projects/index.js": {
+      "maxDuration": 10
     }
-  }
+  },
+  "redirects": [
+    { "source": "/", "destination": "/index.html" }
+  ]
 }

@@ -9,6 +9,10 @@ create table if not exists projects (
   id uuid primary key default gen_random_uuid(),
   project_id text unique not null,        -- short slug used in the API URL, e.g. "apexops"
   api_key text unique not null,           -- secret key the frontend sends to authenticate
+  user_id text not null default 'owner',  -- owner of this project. v1: always 'owner'
+                                           -- (single-user mode). v2: a real user ID once
+                                           -- multi-user auth is added — every dashboard
+                                           -- query will filter by this column.
   name text not null,                     -- human-readable name, e.g. "ApexOps Website"
   to_email text not null,                 -- where notification emails are delivered
   from_email text not null default 'onboarding@resend.dev', -- sender address shown to recipients
@@ -26,6 +30,10 @@ create table if not exists projects (
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+-- Index for dashboard "list my projects" queries
+create index if not exists idx_projects_user_id
+  on projects (user_id, created_at desc);
 
 -- Submissions table: log of every send attempt (success or failure)
 create table if not exists submissions (
@@ -56,3 +64,11 @@ create index if not exists idx_submissions_project_created
 -- alter table projects add column if not exists provider text not null default 'resend';
 -- alter table projects add column if not exists provider_config jsonb not null default '{}'::jsonb;
 -- alter table projects add constraint projects_provider_check check (provider in ('resend', 'smtp'));
+
+-- ════════════════════════════════════════════
+-- MIGRATION (only needed if you already created
+-- the `projects` table before the dashboard/
+-- user_id column was added)
+-- ════════════════════════════════════════════
+-- alter table projects add column if not exists user_id text not null default 'owner';
+-- create index if not exists idx_projects_user_id on projects (user_id, created_at desc);

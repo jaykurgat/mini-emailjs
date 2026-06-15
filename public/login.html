@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sign in — Mini-EmailJS</title>
+  <link rel="stylesheet" href="dashboard.css"/>
+</head>
+<body>
+
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="card">
+        <div class="brand">Mini<span class="accent">EmailJS</span></div>
+        <p>Sign in to manage your projects.</p>
+
+        <form id="login-form">
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" autocomplete="current-password" required autofocus/>
+            <div class="field-error" id="err-password" role="alert"></div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="login-btn">Sign in</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+  <script>
+    // If already logged in, skip straight to the dashboard
+    (async () => {
+      const { authenticated } = await api('/api/auth/session');
+      if (authenticated) location.href = 'index.html';
+    })();
+
+    const form = document.getElementById('login-form');
+    const passwordInput = document.getElementById('password');
+    const errEl = document.getElementById('err-password');
+    const btn = document.getElementById('login-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.classList.remove('show');
+      passwordInput.classList.remove('err');
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Signing in…';
+
+      const { ok, error } = await api('/api/auth/login', {
+        method: 'POST',
+        body: { password: passwordInput.value },
+      });
+
+      if (ok) {
+        location.href = 'index.html';
+      } else {
+        passwordInput.classList.add('err');
+        errEl.textContent = error || 'Incorrect password.';
+        errEl.classList.add('show');
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+        passwordInput.select();
+      }
+    });
+  </script>
+</body>
+</html>

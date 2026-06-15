@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Project — Mini-EmailJS</title>
+  <link rel="stylesheet" href="dashboard.css"/>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">Mini<span class="accent">EmailJS</span></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" id="logout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <a href="index.html" class="back-link">← Back to projects</a>
+
+    <div id="content">
+      <div class="skeleton" style="height:40px;width:240px;border-radius:8px;margin-bottom:8px;"></div>
+      <div class="skeleton" style="height:20px;width:160px;border-radius:6px;margin-bottom:24px;"></div>
+      <div class="skeleton" style="height:180px;border-radius:14px;"></div>
+    </div>
+  </div>
+
+  <!-- Delete confirmation modal -->
+  <div class="modal-overlay" id="delete-modal">
+    <div class="modal-box">
+      <h3>Delete this project?</h3>
+      <p>This permanently deletes the project, its API key, and all submission history. This cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancel-delete">Cancel</button>
+        <button class="btn btn-danger" id="confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Regenerate key confirmation modal -->
+  <div class="modal-overlay" id="regen-modal">
+    <div class="modal-box">
+      <h3>Regenerate API key?</h3>
+      <p>The old key will stop working immediately. You'll need to update the embed code on the website using it.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="cancel-regen">Cancel</button>
+        <button class="btn btn-primary" id="confirm-regen">Regenerate</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('id');
+    const isNew = params.get('new') === '1';
+
+    let currentProject = null;
+
+    (async () => {
+      if (!(await requireAuth())) return;
+      wireLogout();
+      if (!projectId) {
+        document.getElementById('content').innerHTML = `<div class="card"><p class="text-muted">No project specified.</p></div>`;
+        return;
+      }
+      await load();
+    })();
+
+    async function load() {
+      const { ok, project, stats, error } = await api(`/api/projects/${encodeURIComponent(projectId)}`);
+      if (!ok) {
+        document.getElementById('content').innerHTML = `<div class="card"><p class="text-muted">${escapeHtml(error || 'Project not found.')}</p></div>`;
+        return;
+      }
+      currentProject = project;
+      render(project, stats);
+      loadSubmissions();
+    }
+
+    function render(p, stats) {
+      const endpoint = `${location.origin}/api/send/${p.project_id}`;
+      const providerLabel = p.provider === 'smtp' ? 'Your SMTP / Gmail' : 'Resend';
+
+      const embedSnippet = `<form id="contact-form">
+  <input type="text" name="from_name" required/>
+  <input type="email" name="email" required/>
+  <textarea name="message" required></textarea>
+  <input type="text" name="_gotcha" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off"/>
+  <button type="submit">Send</button>
+</form>
+
+<script>
+  const ENDPOINT = "${endpoint}";
+  const API_KEY  = "${p.api_key}";
+
+  document.getElementById('contact-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+    data.apiKey = API_KEY;
+
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+
+    if (result.ok) {
+      alert('Message sent!');
+      e.target.reset();
+    } else {
+      alert('Error: ' + result.error);
+    }
+  });
+<\/script>`;
+
+      document.getElementById('content').innerHTML = `
+        ${isNew ? `<div class="card" style="border-color:var(--accent-border); background:var(--accent-glow); margin-bottom:16px;">
+          <strong>Project created!</strong> Copy the embed code below into your website's form.
+        </div>` : ''}
+
+        <div class="flex-between mb-16">
+          <div>
+            <h1>${escapeHtml(p.name)}</h1>
+            <p class="page-subtitle" style="margin-bottom:0;">
+              <span class="pill ${p.is_active ? 'pill-accent' : 'pill-warning'}"><span class="pill-dot"></span>${p.is_active ? 'Active' : 'Paused'}</span>
+              <span class="pill" style="margin-left:6px;">${providerLabel}</span>
+            </p>
+          </div>
+          <button class="btn btn-danger btn-sm" id="delete-btn">Delete</button>
+        </div>
+
+        <!-- Stats -->
+        <div class="card mb-16">
+          <div class="section-title">Submissions</div>
+          <div class="stats-row">
+            <div class="stat"><div class="stat-val">${stats.total}</div><div class="stat-label">Total</div></div>
+            <div class="stat"><div class="stat-val" style="color:var(--accent-dk)">${stats.sent}</div><div class="stat-label">Sent</div></div>
+            <div class="stat"><div class="stat-val" style="color:var(--warning)">${stats.blocked}</div><div class="stat-label">Blocked</div></div>
+            <div class="stat"><div class="stat-val" style="color:var(--danger)">${stats.error}</div><div class="stat-label">Errors</div></div>
+          </div>
+        </div>
+
+        <!-- API endpoint + key -->
+        <div class="card mb-16">
+          <div class="section-title">API Endpoint</div>
+          <div class="code-row mb-16">
+            <code>${escapeHtml(endpoint)}</code>
+            <button class="copy-btn" onclick="copyToClipboard('${endpoint}', this)">Copy</button>
+          </div>
+
+          <div class="section-title">API Key</div>
+          <div class="code-row">
+            <code id="api-key-display">${escapeHtml(p.api_key)}</code>
+            <button class="copy-btn" onclick="copyToClipboard('${p.api_key}', this)">Copy</button>
+          </div>
+          <div class="flex-between mt-16">
+            <span class="text-muted">Compromised? Generate a new key (old one stops working immediately).</span>
+            <button class="btn btn-secondary btn-sm" id="regen-btn">Regenerate</button>
+          </div>
+        </div>
+
+        <!-- Embed code -->
+        <div class="card mb-16">
+          <div class="flex-between mb-16">
+            <div class="section-title" style="margin-bottom:0;">Embed Code</div>
+            <button class="copy-btn" id="copy-embed-btn">Copy code</button>
+          </div>
+          <p class="text-muted mb-16">Paste this into the website's HTML, then style the form to match the site.</p>
+          <div class="code-block" id="embed-code">${escapeHtml(embedSnippet)}</div>
+        </div>
+
+        <!-- Settings -->
+        <div class="card mb-16">
+          <div class="section-title">Settings</div>
+          <div class="form-group">
+            <label>Recipient email</label>
+            <div class="text-muted">${escapeHtml(p.to_email)}</div>
+          </div>
+          <div class="form-group">
+            <label>Subject template</label>
+            <div class="text-muted" style="font-family:var(--ff-mono);font-size:13px;">${escapeHtml(p.subject_template)}</div>
+          </div>
+          <div class="form-group">
+            <label>Allowed origins</label>
+            <div class="text-muted">${p.allowed_origins && p.allowed_origins.length ? p.allowed_origins.map(escapeHtml).join(', ') : 'Any origin (unrestricted)'}</div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Rate limit</label>
+            <div class="text-muted">${p.rate_limit_per_hour} submissions per IP per hour</div>
+          </div>
+        </div>
+
+        <!-- Recent submissions -->
+        <div class="card">
+          <div class="section-title">Recent Submissions</div>
+          <div id="submissions-content">
+            <div class="skeleton" style="height:120px;border-radius:8px;"></div>
+          </div>
+        </div>
+      `;
+
+      // Wire up buttons
+      document.getElementById('delete-btn').addEventListener('click', () => {
+        document.getElementById('delete-modal').classList.add('open');
+      });
+      document.getElementById('regen-btn').addEventListener('click', () => {
+        document.getElementById('regen-modal').classList.add('open');
+      });
+      document.getElementById('copy-embed-btn').addEventListener('click', (e) => {
+        copyToClipboard(embedSnippet, e.target);
+      });
+    }
+
+    async function loadSubmissions() {
+      const container = document.getElementById('submissions-content');
+      const { ok, submissions, error } = await api(`/api/projects/${encodeURIComponent(projectId)}/submissions?limit=25`);
+
+      if (!ok) {
+        container.innerHTML = `<p class="text-muted">${escapeHtml(error || 'Failed to load submissions.')}</p>`;
+        return;
+      }
+
+      if (!submissions.length) {
+        container.innerHTML = `<p class="text-muted">No submissions yet. They'll appear here once your form starts sending.</p>`;
+        return;
+      }
+
+      const statusPill = (status) => {
+        if (status === 'sent') return `<span class="pill pill-accent"><span class="pill-dot"></span>Sent</span>`;
+        if (status === 'blocked') return `<span class="pill pill-warning"><span class="pill-dot"></span>Blocked</span>`;
+        return `<span class="pill pill-danger"><span class="pill-dot"></span>Error</span>`;
+      };
+
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr><th>When</th><th>Status</th><th>From</th><th>Preview</th></tr>
+          </thead>
+          <tbody>
+            ${submissions.map(s => {
+              const payload = s.payload || {};
+              const from = payload.from_name || payload.email || payload.name || '—';
+              const preview = Object.entries(payload)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(' · ');
+              return `
+                <tr>
+                  <td>${formatDate(s.created_at)}</td>
+                  <td>${statusPill(s.status)}</td>
+                  <td>${escapeHtml(from)}</td>
+                  <td class="payload-preview" title="${escapeHtml(preview)}">${escapeHtml(preview)}</td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    }
+
+    // ── Delete modal ──
+    document.getElementById('cancel-delete').addEventListener('click', () => {
+      document.getElementById('delete-modal').classList.remove('open');
+    });
+    document.getElementById('confirm-delete').addEventListener('click', async () => {
+      const btn = document.getElementById('confirm-delete');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Deleting…';
+      const { ok, error } = await api(`/api/projects/${encodeURIComponent(projectId)}`, { method: 'DELETE' });
+      if (ok) {
+        location.href = 'index.html';
+      } else {
+        showToast(error || 'Failed to delete project.', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+      }
+    });
+
+    // ── Regenerate key modal ──
+    document.getElementById('cancel-regen').addEventListener('click', () => {
+      document.getElementById('regen-modal').classList.remove('open');
+    });
+    document.getElementById('confirm-regen').addEventListener('click', async () => {
+      const btn = document.getElementById('confirm-regen');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Regenerating…';
+      const { ok, project, error } = await api(`/api/projects/${encodeURIComponent(projectId)}/regenerate-key`, { method: 'POST' });
+      btn.disabled = false;
+      btn.textContent = 'Regenerate';
+      document.getElementById('regen-modal').classList.remove('open');
+      if (ok) {
+        showToast('API key regenerated.');
+        currentProject = project;
+        await load();
+      } else {
+        showToast(error || 'Failed to regenerate key.', 'error');
+      }
+    });
+
+    // Close modals on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(overlay => {
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.classList.remove('open');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Projects — Mini-EmailJS</title>
+  <link rel="stylesheet" href="dashboard.css"/>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="brand">Mini<span class="accent">EmailJS</span></div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" id="logout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <div class="flex-between mb-16">
+      <div>
+        <h1>Projects</h1>
+        <p class="page-subtitle" style="margin-bottom:0;">Each project is a website or client connected to this platform.</p>
+      </div>
+      <a href="new-project.html" class="btn btn-primary">+ New Project</a>
+    </div>
+
+    <div id="content">
+      <!-- Loading skeletons -->
+      <div class="project-grid">
+        <div class="skeleton" style="height:120px;border-radius:14px;"></div>
+        <div class="skeleton" style="height:120px;border-radius:14px;"></div>
+        <div class="skeleton" style="height:120px;border-radius:14px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="dashboard.js"></script>
+  <script>
+    (async () => {
+      if (!(await requireAuth())) return;
+      wireLogout();
+      await loadProjects();
+    })();
+
+    async function loadProjects() {
+      const content = document.getElementById('content');
+      const { ok, projects, error } = await api('/api/projects');
+
+      if (!ok) {
+        content.innerHTML = `<div class="card"><p class="text-muted">${escapeHtml(error || 'Failed to load projects.')}</p></div>`;
+        return;
+      }
+
+      if (!projects.length) {
+        content.innerHTML = `
+          <div class="card">
+            <div class="empty-state">
+              <h3>No projects yet</h3>
+              <p>Create your first project to get an API endpoint you can call from any website's form.</p>
+              <a href="new-project.html" class="btn btn-primary">+ New Project</a>
+            </div>
+          </div>`;
+        return;
+      }
+
+      content.innerHTML = `<div class="project-grid">${projects.map(renderProjectCard).join('')}</div>`;
+    }
+
+    function renderProjectCard(p) {
+      const providerLabel = p.provider === 'smtp' ? 'SMTP' : 'Resend';
+      const statusPill = p.is_active
+        ? `<span class="pill pill-accent"><span class="pill-dot"></span>Active</span>`
+        : `<span class="pill pill-warning"><span class="pill-dot"></span>Paused</span>`;
+
+      return `
+        <a href="project.html?id=${encodeURIComponent(p.project_id)}" class="project-card">
+          <div class="project-card-header">
+            <div>
+              <h3>${escapeHtml(p.name)}</h3>
+              <div class="project-id">${escapeHtml(p.project_id)}</div>
+            </div>
+          </div>
+          <div class="project-card-meta">
+            ${statusPill}
+            <span class="pill">${providerLabel}</span>
+          </div>
+          <div class="text-muted">→ ${escapeHtml(p.to_email)}</div>
+        </a>`;
+    }
+  </script>
+</body>
+</html>
