@@ -8,7 +8,7 @@
     "create-project": "node --env-file=.env scripts/create-project.js"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
+    "@supabase/supabase-js": "^2.58.0",
     "nodemailer": "^6.9.14"
   },
   "engines": {

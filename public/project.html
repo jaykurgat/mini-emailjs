@@ -4,6 +4,7 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Project — Mini-EmailJS</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <link rel="stylesheet" href="dashboard.css"/>
 </head>
 <body>
@@ -161,14 +162,78 @@
           </div>
         </div>
 
-        <!-- Embed code -->
-        <div class="card mb-16">
-          <div class="flex-between mb-16">
-            <div class="section-title" style="margin-bottom:0;">Embed Code</div>
-            <button class="copy-btn" id="copy-embed-btn">Copy code</button>
+        <!-- Form Builder -->
+        <div class="card mb-16" id="form-builder-card">
+          <div class="section-title">Form Builder</div>
+          <p class="text-muted mb-16">
+            Pick your fields, choose a theme, and copy a fully-styled, ready-to-paste form — 
+            already wired to this project's endpoint and API key.
+          </p>
+
+          <!-- Step 1: Fields -->
+          <div class="form-group">
+            <label>Fields</label>
+            <div class="field-picker" id="field-picker">
+              <!-- chips injected by JS -->
+            </div>
           </div>
-          <p class="text-muted mb-16">Paste this into the website's HTML, then style the form to match the site.</p>
-          <div class="code-block" id="embed-code">${escapeHtml(embedSnippet)}</div>
+
+          <!-- Step 2: Custom fields -->
+          <div class="form-group">
+            <label>Custom fields <span class="text-muted" style="font-weight:400;">(optional, up to 2)</span></label>
+            <div id="custom-fields-list"></div>
+            <button class="btn btn-secondary btn-sm" id="add-custom-field-btn" style="margin-top:6px;">+ Add custom field</button>
+          </div>
+
+          <!-- Step 3: Theme -->
+          <div class="form-group">
+            <label>Theme</label>
+            <div class="theme-picker" id="theme-picker">
+              <div class="theme-card selected" data-theme="minimal-light">
+                <div class="theme-swatch" style="background:#ffffff;border:1px solid #D8DEE9;color:#0B0F1A;">Aa</div>
+                <div class="theme-name">Minimal Light</div>
+              </div>
+              <div class="theme-card" data-theme="minimal-dark">
+                <div class="theme-swatch" style="background:#11151F;color:#F5F7FB;">Aa</div>
+                <div class="theme-name">Minimal Dark</div>
+              </div>
+              <div class="theme-card" data-theme="rounded">
+                <div class="theme-swatch" style="background:#ffffff;border:1px solid #E5E5EA;border-radius:14px;color:#1A1A1A;">Aa</div>
+                <div class="theme-name">Rounded</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 4: Title / subtitle -->
+          <div class="form-row">
+            <div class="form-group">
+              <label for="form-title">Form heading <span class="text-muted" style="font-weight:400;">(optional)</span></label>
+              <input type="text" id="form-title" placeholder="e.g. Get in Touch"/>
+            </div>
+            <div class="form-group">
+              <label for="form-subtitle">Subheading <span class="text-muted" style="font-weight:400;">(optional)</span></label>
+              <input type="text" id="form-subtitle" placeholder="e.g. We reply within 24 hours."/>
+            </div>
+          </div>
+
+          <!-- Live preview -->
+          <div class="form-group">
+            <label>Live Preview</label>
+            <div class="form-preview-frame" id="form-preview">
+              <p class="text-muted" style="font-size:13px;">Select at least one field to see a preview.</p>
+            </div>
+          </div>
+
+          <!-- Generated code -->
+          <div class="form-group">
+            <div class="flex-between mb-16">
+              <label style="margin:0;">Generated Code</label>
+              <button class="copy-btn" id="copy-generated-btn">Copy code</button>
+            </div>
+            <div class="code-block" id="generated-code" style="min-height:80px;font-size:11.5px;">
+              Select fields above to generate your embed code.
+            </div>
+          </div>
         </div>
 
         <!-- Settings -->
@@ -208,9 +273,9 @@
       document.getElementById('regen-btn').addEventListener('click', () => {
         document.getElementById('regen-modal').classList.add('open');
       });
-      document.getElementById('copy-embed-btn').addEventListener('click', (e) => {
-        copyToClipboard(embedSnippet, e.target);
-      });
+
+      // Init form builder
+      initFormBuilder(p);
     }
 
     async function loadSubmissions() {
@@ -302,6 +367,202 @@
         if (e.target === overlay) overlay.classList.remove('open');
       });
     });
+  </script>
+
+  <!-- Form Builder logic -->
+  <script src="form-generator.js"></script>
+  <script>
+    // ── FORM BUILDER ──
+    const PRESET_FIELDS = [
+      { key: 'name',    label: 'Full Name',  required: true  },
+      { key: 'email',   label: 'Email',      required: true  },
+      { key: 'phone',   label: 'Phone',      required: false },
+      { key: 'company', label: 'Company',    required: false },
+      { key: 'subject', label: 'Subject',    required: false },
+      { key: 'message', label: 'Message',    required: true  },
+    ];
+
+    let selectedFields  = ['name', 'email', 'message']; // defaults
+    let selectedTheme   = 'minimal-light';
+    let customFieldRows = [];
+    let builderProject  = null;
+
+    function initFormBuilder(p) {
+      builderProject = p;
+      renderFieldChips();
+      renderThemePicker();
+      bindBuilderEvents();
+      regenerateCode();
+    }
+
+    function renderFieldChips() {
+      const picker = document.getElementById('field-picker');
+      picker.innerHTML = PRESET_FIELDS.map(f => {
+        const checked = selectedFields.includes(f.key);
+        return `<label class="field-chip ${checked ? 'checked' : ''}" data-key="${f.key}">
+          <input type="checkbox" ${checked ? 'checked' : ''} style="display:none"/>
+          ${escapeHtml(f.label)}${f.required ? '<span class="req-star"> *</span>' : ''}
+        </label>`;
+      }).join('');
+
+      picker.querySelectorAll('.field-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const key = chip.dataset.key;
+          const preset = PRESET_FIELDS.find(f => f.key === key);
+          if (preset && preset.required) return; // required fields can't be deselected
+
+          if (selectedFields.includes(key)) {
+            selectedFields = selectedFields.filter(k => k !== key);
+            chip.classList.remove('checked');
+          } else {
+            selectedFields.push(key);
+            chip.classList.add('checked');
+          }
+          regenerateCode();
+        });
+      });
+    }
+
+    function renderThemePicker() {
+      document.querySelectorAll('.theme-card').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.theme-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          selectedTheme = card.dataset.theme;
+          regenerateCode();
+        });
+      });
+    }
+
+    function bindBuilderEvents() {
+      // Title/subtitle inputs
+      document.getElementById('form-title').addEventListener('input', regenerateCode);
+      document.getElementById('form-subtitle').addEventListener('input', regenerateCode);
+
+      // Add custom field
+      const addBtn = document.getElementById('add-custom-field-btn');
+      addBtn.addEventListener('click', () => {
+        if (customFieldRows.length >= 2) {
+          showToast('Maximum 2 custom fields allowed.', 'error');
+          return;
+        }
+        const id = Date.now();
+        customFieldRows.push({ id, label: '', name: '', type: 'text' });
+        renderCustomFields();
+      });
+
+      // Copy generated code
+      document.getElementById('copy-generated-btn').addEventListener('click', (e) => {
+        const code = document.getElementById('generated-code').textContent;
+        if (code && code !== 'Select fields above to generate your embed code.') {
+          copyToClipboard(code, e.target);
+        } else {
+          showToast('Select at least one field first.', 'error');
+        }
+      });
+    }
+
+    function renderCustomFields() {
+      const container = document.getElementById('custom-fields-list');
+      const addBtn    = document.getElementById('add-custom-field-btn');
+
+      container.innerHTML = customFieldRows.map((row, i) => `
+        <div class="custom-field-row" data-id="${row.id}">
+          <div class="form-group" style="margin:0;">
+            <label>Field label</label>
+            <input type="text" class="cf-label" placeholder="e.g. Budget" value="${escapeHtml(row.label)}"/>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Field name (no spaces)</label>
+            <input type="text" class="cf-name" placeholder="e.g. budget" value="${escapeHtml(row.name)}"/>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Type</label>
+            <select class="cf-type">
+              <option value="text"     ${row.type === 'text'     ? 'selected' : ''}>Text</option>
+              <option value="email"    ${row.type === 'email'    ? 'selected' : ''}>Email</option>
+              <option value="tel"      ${row.type === 'tel'      ? 'selected' : ''}>Phone</option>
+              <option value="textarea" ${row.type === 'textarea' ? 'selected' : ''}>Textarea</option>
+            </select>
+          </div>
+          <button class="remove-field-btn" data-id="${row.id}">×</button>
+        </div>
+      `).join('');
+
+      addBtn.style.display = customFieldRows.length >= 2 ? 'none' : '';
+
+      // Bind events on new rows
+      container.querySelectorAll('.custom-field-row').forEach(rowEl => {
+        const id = Number(rowEl.dataset.id);
+        const ref = customFieldRows.find(r => r.id === id);
+
+        rowEl.querySelector('.cf-label').addEventListener('input', e => {
+          ref.label = e.target.value;
+          // Auto-generate field name from label if name is still empty
+          const nameInput = rowEl.querySelector('.cf-name');
+          if (!nameInput.value) {
+            nameInput.value = e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+            ref.name = nameInput.value;
+          }
+          regenerateCode();
+        });
+        rowEl.querySelector('.cf-name').addEventListener('input', e => {
+          ref.name = e.target.value.replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+          e.target.value = ref.name;
+          regenerateCode();
+        });
+        rowEl.querySelector('.cf-type').addEventListener('change', e => {
+          ref.type = e.target.value;
+          regenerateCode();
+        });
+        rowEl.querySelector('.remove-field-btn').addEventListener('click', () => {
+          customFieldRows = customFieldRows.filter(r => r.id !== id);
+          renderCustomFields();
+          regenerateCode();
+        });
+      });
+    }
+
+    function regenerateCode() {
+      if (!builderProject) return;
+
+      const endpoint = `${location.origin}/api/send/${builderProject.project_id}`;
+      const apiKey   = builderProject.api_key;
+      const title    = document.getElementById('form-title')?.value || '';
+      const subtitle = document.getElementById('form-subtitle')?.value || '';
+
+      const customFields = customFieldRows
+        .filter(r => r.label && r.name)
+        .map(r => ({ label: r.label, name: r.name, type: r.type }));
+
+      const codeEl    = document.getElementById('generated-code');
+      const previewEl = document.getElementById('form-preview');
+
+      if (!selectedFields.length && !customFields.length) {
+        codeEl.textContent = 'Select at least one field to generate your embed code.';
+        previewEl.innerHTML = '<p class="text-muted" style="font-size:13px;">Select at least one field to see a preview.</p>';
+        return;
+      }
+
+      const snippet = generateFormSnippet({
+        endpoint,
+        apiKey,
+        selectedFields,
+        customFields,
+        theme: selectedTheme,
+        title,
+        subtitle,
+      });
+
+      // Update code block
+      codeEl.textContent = snippet;
+
+      // Update live preview — inject the raw snippet HTML into the preview frame
+      // Scope it safely by removing any existing mek-form style tags first
+      previewEl.innerHTML = snippet
+        .replace(/<script[\s\S]*?<\/script>/gi, '') // strip the JS in preview (no submission)
+        .replace(/<\/form>/, `</form><p style="font-size:11px;color:#8A99B4;margin-top:8px;text-align:center;">↑ Visual preview — form submission disabled here</p>`);
+    }
   </script>
 </body>
 </html>
