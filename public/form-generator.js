@@ -288,7 +288,8 @@ ${headerHtml}${fieldHtml}
         status.className = 'mek-status show error';
       }
     } catch (err) {
-      status.textContent = 'Network error. Please try again.';
+      console.error('[Mini-EmailJS] fetch error:', err);
+      status.textContent = 'Network error (' + (err.message || 'unknown') + '). Check the browser console for details.';
       status.className = 'mek-status show error';
     } finally {
       button.disabled = false;

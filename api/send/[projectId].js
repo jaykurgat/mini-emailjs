@@ -136,7 +136,8 @@ export default async function handler(req, res) {
 function setCorsHeaders(res, origin) {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Max-Age', '86400'); // cache preflight for 24h
 }
 
 function getClientIp(req) {

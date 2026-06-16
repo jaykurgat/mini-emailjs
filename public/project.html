@@ -165,6 +165,10 @@
         <!-- Form Builder -->
         <div class="card mb-16" id="form-builder-card">
           <div class="section-title">Form Builder</div>
+          <!-- Preview URL warning -->
+          <div id="preview-url-warning" style="display:none;background:#FEF3C7;border:1px solid #F59E0B;border-radius:var(--r);padding:12px 16px;font-size:13px;color:#92400E;margin-bottom:16px;">
+            ⚠️ <strong>You're viewing a Vercel preview URL.</strong> The generated snippet will use this preview URL as the endpoint — which may not work reliably. For a production-ready snippet, visit your <strong>stable production URL</strong> (e.g. <code>https://mini-emailjs.vercel.app</code>) and regenerate from there.
+          </div>
           <p class="text-muted mb-16">
             Pick your fields, choose a theme, and copy a fully-styled, ready-to-paste form — 
             already wired to this project's endpoint and API key.
@@ -526,7 +530,21 @@
     function regenerateCode() {
       if (!builderProject) return;
 
-      const endpoint = `${location.origin}/api/send/${builderProject.project_id}`;
+      // Use the current origin but strip Vercel preview URL hashes if present.
+      // Preview URLs look like: mini-emailjs-abc123-user-projects-xxx.vercel.app
+      // Production URL looks like: mini-emailjs.vercel.app (no hash segment)
+      let origin = location.origin;
+      const hostname = location.hostname;
+
+      // Detect Vercel preview deployment (has a git-hash segment in subdomain)
+      // and warn the user — the snippet should use the production URL instead
+      const isPreview = /vercel\.app$/.test(hostname) && hostname.split('-').length > 3;
+      if (isPreview) {
+        const warnEl = document.getElementById('preview-url-warning');
+        if (warnEl) warnEl.style.display = 'block';
+      }
+
+      const endpoint = `${origin}/api/send/${builderProject.project_id}`;
       const apiKey   = builderProject.api_key;
       const title    = document.getElementById('form-title')?.value || '';
       const subtitle = document.getElementById('form-subtitle')?.value || '';
