@@ -67,6 +67,10 @@ export default async function handler(req, res) {
       if ('allowedOrigins' in body) updates.allowed_origins = body.allowedOrigins;
       if ('rateLimitPerHour' in body) updates.rate_limit_per_hour = body.rateLimitPerHour;
       if ('isActive' in body) updates.is_active = body.isActive;
+      if ('formBuilderConfig' in body) updates.form_builder_config = body.formBuilderConfig;
+      if ('autoReplyEnabled' in body) updates.auto_reply_enabled = body.autoReplyEnabled;
+      if ('autoReplySubject' in body) updates.auto_reply_subject = body.autoReplySubject;
+      if ('autoReplyBody' in body) updates.auto_reply_body = body.autoReplyBody;
 
       const project = await updateProject(userId, projectId, updates);
       return res.status(200).json({ ok: true, project });

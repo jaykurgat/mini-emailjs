@@ -332,3 +332,25 @@ tr:last-child td { border-bottom: none; }
   display: flex; justify-content: center;
 }
 .form-preview-frame > * { width: 100%; max-width: 480px; }
+
+/* ── Required field chip (can't be deselected) ── */
+.field-chip.required-chip {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+.field-chip.required-chip:hover {
+  border-color: var(--border-md);
+  background: var(--white);
+  color: var(--ink-soft);
+}
+.field-chip.required-chip.checked {
+  border-color: var(--accent-border);
+  background: var(--accent-glow);
+  color: var(--accent-dk);
+  cursor: not-allowed;
+}
+
+/* ── Submission detail modal wider box ── */
+@media (min-width: 600px) {
+  #submission-modal .modal-box { max-width: 560px; }
+}

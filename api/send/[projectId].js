@@ -1,32 +1,11 @@
 // api/send/[projectId].js
-//
-// POST /api/send/:projectId
-//
-// Body (JSON or form-encoded):
-//   {
-//     "apiKey": "...",          // required — project's secret API key
-//     "from_name": "Jane Doe",  // any fields the form collects
-//     "email": "jane@x.com",
-//     "message": "...",
-//     "_gotcha": ""             // honeypot field — must stay empty
-//   }
-//
-// Response:
-//   200 { ok: true }
-//   4xx { ok: false, error: "..." }
-//
-// This endpoint:
-//   1. Looks up the project by projectId
-//   2. Validates the API key and request origin
-//   3. Checks the honeypot field (basic spam protection)
-//   4. Checks rate limits (per IP, per hour)
-//   5. Renders the email subject + body from the project's template
-//   6. Sends via Resend
-//   7. Logs the submission (sent / blocked / error) to Supabase
+// Public endpoint called by website contact forms.
+// Validates the request, sends notification email, optionally sends
+// auto-reply to submitter, and logs the submission to Supabase.
 
 import { supabase } from '../../lib/supabase.js';
 import { sendViaProvider } from '../../lib/providers/index.js';
-import { renderTemplate, buildEmailBody } from '../../lib/render.js';
+import { renderTemplate, buildEmailBody, buildAutoReplyBody } from '../../lib/render.js';
 import { checkRateLimit } from '../../lib/rateLimit.js';
 
 export default async function handler(req, res) {
@@ -59,12 +38,12 @@ export default async function handler(req, res) {
     }
 
     // ── 2. Validate origin (CORS) ──
-    const origin = req.headers.origin || '';
-    const allowedOrigins = project.allowed_origins || [];
-    const originAllowed =
-      allowedOrigins.length === 0 || allowedOrigins.includes(origin);
+    const origin = (req.headers.origin || '').replace(/\/$/, ''); // strip trailing slash
+    const allowedOrigins = (project.allowed_origins || []).map(o => o.replace(/\/$/, ''));
+    const originAllowed = allowedOrigins.length === 0 || allowedOrigins.includes(origin);
 
-    setCorsHeaders(res, originAllowed ? origin || '*' : 'null');
+    // Always set a valid CORS header — never the string 'null'
+    setCorsHeaders(res, originAllowed ? (origin || '*') : '*');
 
     if (!originAllowed) {
       await logSubmission(projectId, body, 'blocked', 'Origin not allowed', req);
@@ -81,8 +60,7 @@ export default async function handler(req, res) {
     const honeypotField = project.honeypot_field || '_gotcha';
     if (body[honeypotField]) {
       await logSubmission(projectId, body, 'blocked', 'Honeypot triggered', req);
-      // Return success to the bot so it doesn't retry — but don't send the email.
-      return res.status(200).json({ ok: true });
+      return res.status(200).json({ ok: true }); // silently succeed for bots
     }
 
     // ── 5. Rate limiting ──
@@ -97,7 +75,7 @@ export default async function handler(req, res) {
       return res.status(429).json({ ok: false, error: 'Too many submissions. Please try again later.' });
     }
 
-    // ── 6. Render email content ──
+    // ── 6. Render and send notification email to owner ──
     const submissionData = stripInternalFields(body);
     const subject = renderTemplate(project.subject_template, submissionData);
     const html = buildEmailBody(submissionData, {
@@ -109,8 +87,8 @@ export default async function handler(req, res) {
       ip_address: ipAddress || 'unknown',
     });
 
-    // ── 7. Send via the project's configured provider ──
     const replyTo = body.email || body.from_email || undefined;
+
     await sendViaProvider(project, {
       from: project.from_email,
       to: project.to_email,
@@ -119,8 +97,33 @@ export default async function handler(req, res) {
       replyTo,
     });
 
+    // ── 7. Auto-reply to submitter (optional, non-blocking) ──
+    if (project.auto_reply_enabled && replyTo) {
+      try {
+        const autoSubject = renderTemplate(
+          project.auto_reply_subject || "Thanks for reaching out — we'll be in touch soon.",
+          submissionData
+        );
+        const autoHtml = buildAutoReplyBody(
+          renderTemplate(project.auto_reply_body || '', submissionData),
+          project.name
+        );
+
+        await sendViaProvider(project, {
+          from: project.from_email,
+          to: replyTo,
+          subject: autoSubject,
+          html: autoHtml,
+        });
+      } catch (autoErr) {
+        // Auto-reply failure should never break the main submission
+        console.error('Auto-reply failed (non-fatal):', autoErr.message);
+      }
+    }
+
     await logSubmission(projectId, body, 'sent', null, req);
     return res.status(200).json({ ok: true });
+
   } catch (err) {
     console.error('Send error:', err);
     await logSubmission(projectId, body, 'error', err.message, req).catch(() => {});
@@ -129,15 +132,13 @@ export default async function handler(req, res) {
   }
 }
 
-// ──────────────────────────────────────────────
-// Helpers
-// ──────────────────────────────────────────────
+// ── Helpers ──
 
 function setCorsHeaders(res, origin) {
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Max-Age', '86400'); // cache preflight for 24h
+  res.setHeader('Access-Control-Max-Age', '86400');
 }
 
 function getClientIp(req) {
@@ -146,11 +147,9 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || null;
 }
 
-/** Remove apiKey and honeypot fields before rendering/logging the email body. */
 function stripInternalFields(body) {
   const clone = { ...body };
   delete clone.apiKey;
-  // Remove any field starting with underscore (honeypot convention)
   Object.keys(clone).forEach((key) => {
     if (key.startsWith('_')) delete clone[key];
   });

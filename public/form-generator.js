@@ -1,29 +1,27 @@
 // public/form-generator.js
-//
-// Generates a complete, styled, ready-to-paste contact form (HTML + CSS + JS)
-// wired to a project's /api/send/:projectId endpoint.
-//
-// Used by project.html's "Form Builder" section.
+// Generates complete, styled, ready-to-paste contact form snippets.
+// Supports text, email, tel, textarea, and select (dropdown) field types.
 
-/**
- * Built-in field presets. Each has a stable `key`, the HTML `name` attribute
- * used in the submitted payload, a label, input type, and whether it's
- * required by default.
- */
 const FIELD_PRESETS = [
-  { key: 'name',    name: 'from_name', label: 'Full Name',  type: 'text',     required: true  },
-  { key: 'email',   name: 'email',     label: 'Email',      type: 'email',    required: true  },
-  { key: 'phone',   name: 'phone',     label: 'Phone',      type: 'tel',      required: false },
-  { key: 'company', name: 'company',   label: 'Company',    type: 'text',     required: false },
-  { key: 'subject', name: 'subject',   label: 'Subject',    type: 'text',     required: false },
-  { key: 'message', name: 'message',  label: 'Message',    type: 'textarea', required: true  },
+  { key: 'name',    name: 'from_name', label: 'Full Name',      type: 'text',     required: true  },
+  { key: 'email',   name: 'email',     label: 'Email',          type: 'email',    required: true  },
+  { key: 'phone',   name: 'phone',     label: 'Phone',          type: 'tel',      required: false },
+  { key: 'company', name: 'company',   label: 'Company',        type: 'text',     required: false },
+  { key: 'subject', name: 'subject',   label: 'Subject',        type: 'text',     required: false },
+  { key: 'stack',   name: 'stack',     label: 'Software Stack', type: 'select',   required: false,
+    options: [
+      'Zoho Suite',
+      'HubSpot',
+      'GoHighLevel',
+      'Salesforce',
+      'Multiple / Unintegrated Platforms',
+      'No CRM Currently',
+      'Other',
+    ]
+  },
+  { key: 'message', name: 'message',  label: 'Message',        type: 'textarea', required: true  },
 ];
 
-/**
- * Theme presets. Each is a self-contained set of CSS custom properties +
- * base styles, scoped under `.mek-form` so it won't leak into / clash with
- * the host site's existing styles.
- */
 const THEMES = {
   'minimal-light': {
     label: 'Minimal Light',
@@ -33,6 +31,7 @@ const THEMES = {
   --mek-text: #0B0F1A;
   --mek-muted: #5C6B85;
   --mek-border: #D8DEE9;
+  --mek-input-bg: #F5F7FB;
   --mek-accent: #00C98D;
   --mek-accent-text: #0B0F1A;
   --mek-radius: 10px;
@@ -48,6 +47,7 @@ const THEMES = {
   --mek-text: #F5F7FB;
   --mek-muted: #8A99B4;
   --mek-border: #2A3349;
+  --mek-input-bg: #1A2235;
   --mek-accent: #00D49A;
   --mek-accent-text: #0B0F1A;
   --mek-radius: 10px;
@@ -63,6 +63,7 @@ const THEMES = {
   --mek-text: #1A1A1A;
   --mek-muted: #767676;
   --mek-border: #E5E5EA;
+  --mek-input-bg: #F8F8F8;
   --mek-accent: #5B5BD6;
   --mek-accent-text: #FFFFFF;
   --mek-radius: 22px;
@@ -72,7 +73,6 @@ const THEMES = {
   },
 };
 
-/** Shared base CSS — uses the --mek-* variables set by the chosen theme. */
 const BASE_CSS = `
 .mek-form {
   background: var(--mek-bg);
@@ -85,6 +85,7 @@ const BASE_CSS = `
   margin: 0 0 6px;
   font-size: 1.15rem;
   font-weight: 700;
+  color: var(--mek-text);
 }
 .mek-form p.mek-sub {
   margin: 0 0 20px;
@@ -99,31 +100,43 @@ const BASE_CSS = `
   font-size: 12.5px;
   font-weight: 600;
   margin-bottom: 6px;
+  color: var(--mek-text);
 }
 .mek-form input,
-.mek-form textarea {
+.mek-form textarea,
+.mek-form select {
   width: 100%;
   box-sizing: border-box;
   padding: 11px 13px;
   border: 1px solid var(--mek-border);
   border-radius: var(--mek-radius);
-  background: transparent;
+  background: var(--mek-input-bg);
   color: var(--mek-text);
   font-family: inherit;
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .mek-form input:focus,
-.mek-form textarea:focus {
+.mek-form textarea:focus,
+.mek-form select:focus {
   border-color: var(--mek-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mek-accent) 18%, transparent);
+}
+.mek-form select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235C6B85' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  padding-right: 36px;
+  cursor: pointer;
 }
 .mek-form textarea {
   min-height: 110px;
   resize: vertical;
 }
-.mek-form button {
+.mek-form button[type="submit"] {
   width: 100%;
   padding: 12px;
   border: none;
@@ -136,26 +149,28 @@ const BASE_CSS = `
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
-.mek-form button:hover { opacity: 0.9; }
-.mek-form button:disabled { opacity: 0.6; cursor: not-allowed; }
+.mek-form button[type="submit"]:hover { opacity: 0.9; }
+.mek-form button[type="submit"]:disabled { opacity: 0.6; cursor: not-allowed; }
 .mek-form .mek-status {
   margin-top: 12px;
   font-size: 13px;
   display: none;
+  padding: 10px 14px;
+  border-radius: var(--mek-radius);
 }
 .mek-form .mek-status.show { display: block; }
-.mek-form .mek-status.success { color: var(--mek-accent); }
-.mek-form .mek-status.error { color: #EF4444; }
+.mek-form .mek-status.success {
+  color: #065F46;
+  background: #D1FAE5;
+  border: 1px solid #6EE7B7;
+}
+.mek-form .mek-status.error {
+  color: #991B1B;
+  background: #FEE2E2;
+  border: 1px solid #FCA5A5;
+}
 `;
 
-/**
- * Build the list of fields to render, combining selected presets and
- * custom fields, in a sensible order (text inputs first, message/textarea last).
- *
- * @param {string[]} selectedPresetKeys - keys from FIELD_PRESETS to include
- * @param {Array<{label: string, name: string, type: string}>} customFields
- * @returns {Array} ordered field definitions
- */
 function buildFieldList(selectedPresetKeys, customFields = []) {
   const presets = FIELD_PRESETS.filter((f) => selectedPresetKeys.includes(f.key));
   const customs = customFields
@@ -166,17 +181,16 @@ function buildFieldList(selectedPresetKeys, customFields = []) {
       label: f.label,
       type: f.type || 'text',
       required: !!f.required,
+      options: f.options || [],
     }));
 
   const all = [...presets, ...customs];
-
-  // Put textarea-type fields last for a more natural form layout
+  // Put textareas last
   const inputs = all.filter((f) => f.type !== 'textarea');
   const textareas = all.filter((f) => f.type === 'textarea');
   return [...inputs, ...textareas];
 }
 
-/** Escape a value for safe interpolation into HTML attributes/text. */
 function esc(value) {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -185,20 +199,37 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
-/**
- * Generate the complete embed code (HTML + <style> + <script>) for a
- * customized contact form.
- *
- * @param {Object} opts
- * @param {string} opts.endpoint - the project's API endpoint URL
- * @param {string} opts.apiKey - the project's API key
- * @param {string[]} opts.selectedFields - preset field keys to include
- * @param {Array} [opts.customFields] - additional custom fields
- * @param {string} [opts.theme] - theme key from THEMES (default 'minimal-light')
- * @param {string} [opts.title] - optional heading shown above the form
- * @param {string} [opts.subtitle] - optional subtext shown below the heading
- * @returns {string} complete embeddable snippet
- */
+function renderFieldHtml(f) {
+  const id = `mek-${f.name}`;
+  const reqAttr = f.required ? ' required' : '';
+  const reqMark = f.required ? ' *' : '';
+
+  if (f.type === 'textarea') {
+    return `      <div class="mek-group">
+        <label for="${id}">${esc(f.label)}${reqMark}</label>
+        <textarea id="${id}" name="${esc(f.name)}"${reqAttr}></textarea>
+      </div>`;
+  }
+
+  if (f.type === 'select') {
+    const opts = (f.options || [])
+      .map(o => `          <option value="${esc(o)}">${esc(o)}</option>`)
+      .join('\n');
+    return `      <div class="mek-group">
+        <label for="${id}">${esc(f.label)}${reqMark}</label>
+        <select id="${id}" name="${esc(f.name)}"${reqAttr}>
+          <option value="" disabled selected>Select an option…</option>
+${opts}
+        </select>
+      </div>`;
+  }
+
+  return `      <div class="mek-group">
+        <label for="${id}">${esc(f.label)}${reqMark}</label>
+        <input type="${esc(f.type)}" id="${id}" name="${esc(f.name)}"${reqAttr}/>
+      </div>`;
+}
+
 function generateFormSnippet({
   endpoint,
   apiKey,
@@ -211,28 +242,11 @@ function generateFormSnippet({
   const fields = buildFieldList(selectedFields, customFields);
   const themeDef = THEMES[theme] || THEMES['minimal-light'];
 
-  const fieldHtml = fields
-    .map((f) => {
-      const id = `mek-${f.name}`;
-      const reqAttr = f.required ? ' required' : '';
-      const reqMark = f.required ? ' *' : '';
+  const fieldHtml = fields.map(renderFieldHtml).join('\n');
 
-      if (f.type === 'textarea') {
-        return `      <div class="mek-group">
-        <label for="${id}">${esc(f.label)}${reqMark}</label>
-        <textarea id="${id}" name="${esc(f.name)}"${reqAttr}></textarea>
-      </div>`;
-      }
-
-      return `      <div class="mek-group">
-        <label for="${id}">${esc(f.label)}${reqMark}</label>
-        <input type="${esc(f.type)}" id="${id}" name="${esc(f.name)}"${reqAttr}/>
-      </div>`;
-    })
-    .join('\n');
-
-  const headerHtml = title || subtitle
-    ? `      ${title ? `<h3>${esc(title)}</h3>` : ''}\n      ${subtitle ? `<p class="mek-sub">${esc(subtitle)}</p>` : ''}\n`
+  const headerHtml = (title || subtitle)
+    ? `      ${title    ? `<h3>${esc(title)}</h3>` : ''}
+      ${subtitle ? `<p class="mek-sub">${esc(subtitle)}</p>` : ''}\n`
     : '';
 
   return `<!-- Mini-EmailJS contact form (theme: ${themeDef.label}) -->
@@ -243,7 +257,8 @@ ${BASE_CSS.trim()}
 
 <form class="mek-form" id="mek-contact-form">
 ${headerHtml}${fieldHtml}
-      <!-- Honeypot — kept hidden, bots often fill it in -->
+
+      <!-- Honeypot — hidden from real users, bots often fill it in -->
       <input type="text" name="_gotcha" style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off"/>
 
       <button type="submit">Send Message</button>
@@ -252,35 +267,35 @@ ${headerHtml}${fieldHtml}
 
 <script>
 (function () {
-  const ENDPOINT = "${endpoint}";
-  const API_KEY  = "${apiKey}";
+  var ENDPOINT = "${endpoint}";
+  var API_KEY  = "${apiKey}";
 
-  const form = document.getElementById('mek-contact-form');
-  const status = document.getElementById('mek-status');
-  const button = form.querySelector('button');
+  var form   = document.getElementById('mek-contact-form');
+  var status = document.getElementById('mek-status');
+  var button = form.querySelector('button[type="submit"]');
 
   form.addEventListener('submit', async function (e) {
     e.preventDefault();
     status.className = 'mek-status';
     status.textContent = '';
 
-    const data = Object.fromEntries(new FormData(form).entries());
+    var data = Object.fromEntries(new FormData(form).entries());
     data.apiKey = API_KEY;
 
     button.disabled = true;
-    const originalText = button.textContent;
-    button.textContent = 'Sending…';
+    var originalText = button.textContent;
+    button.textContent = 'Sending\u2026';
 
     try {
-      const res = await fetch(ENDPOINT, {
+      var res = await fetch(ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-      const result = await res.json();
+      var result = await res.json();
 
       if (result.ok) {
-        status.textContent = 'Thanks — your message has been sent!';
+        status.textContent = 'Thanks \u2014 your message has been sent!';
         status.className = 'mek-status show success';
         form.reset();
       } else {
@@ -289,7 +304,7 @@ ${headerHtml}${fieldHtml}
       }
     } catch (err) {
       console.error('[Mini-EmailJS] fetch error:', err);
-      status.textContent = 'Network error (' + (err.message || 'unknown') + '). Check the browser console for details.';
+      status.textContent = 'Network error (' + (err.message || 'unknown') + '). Please try again.';
       status.className = 'mek-status show error';
     } finally {
       button.disabled = false;

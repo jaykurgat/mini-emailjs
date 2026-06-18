@@ -7,27 +7,25 @@
 -- Projects table: one row per website/client using the platform
 create table if not exists projects (
   id uuid primary key default gen_random_uuid(),
-  project_id text unique not null,        -- short slug used in the API URL, e.g. "apexops"
-  api_key text unique not null,           -- secret key the frontend sends to authenticate
-  user_id text not null default 'owner',  -- owner of this project. v1: always 'owner'
-                                           -- (single-user mode). v2: a real user ID once
-                                           -- multi-user auth is added — every dashboard
-                                           -- query will filter by this column.
-  name text not null,                     -- human-readable name, e.g. "ApexOps Website"
-  to_email text not null,                 -- where notification emails are delivered
-  from_email text not null default 'onboarding@resend.dev', -- sender address shown to recipients
+  project_id text unique not null,
+  api_key text unique not null,
+  user_id text not null default 'owner',
+  name text not null,
+  to_email text not null,
+  from_email text not null default 'onboarding@resend.dev',
   provider text not null default 'resend' check (provider in ('resend', 'smtp')),
-                                           -- which email provider this project uses
   provider_config jsonb not null default '{}'::jsonb,
-                                           -- provider-specific credentials, e.g.
-                                           -- { "host": "smtp.gmail.com", "port": 465,
-                                           --   "user": "you@gmail.com", "pass": "app-password" }
-                                           -- empty for 'resend' (uses platform RESEND_API_KEY)
   subject_template text not null default 'New form submission from {{from_name}}',
-  allowed_origins text[] not null default '{}', -- e.g. ARRAY['https://apexops.com']
-  rate_limit_per_hour int not null default 20,   -- max submissions per IP per hour
-  honeypot_field text default '_gotcha',  -- field name that must stay empty (spam trap)
+  allowed_origins text[] not null default '{}',
+  rate_limit_per_hour int not null default 20,
+  honeypot_field text default '_gotcha',
   is_active boolean not null default true,
+  -- Form builder: saves last field/theme config so it persists across page loads
+  form_builder_config jsonb not null default '{}'::jsonb,
+  -- Auto-reply: optional confirmation email sent to the form submitter
+  auto_reply_enabled boolean not null default false,
+  auto_reply_subject text not null default 'Thanks for reaching out — we''ll be in touch soon.',
+  auto_reply_body text not null default 'Hi {{from_name}},\n\nThanks for getting in touch. We''ve received your message and will get back to you within one business day.\n\nBest,\nThe Team',
   created_at timestamptz not null default now()
 );
 
@@ -72,3 +70,12 @@ create index if not exists idx_submissions_project_created
 -- ════════════════════════════════════════════
 -- alter table projects add column if not exists user_id text not null default 'owner';
 -- create index if not exists idx_projects_user_id on projects (user_id, created_at desc);
+
+-- ════════════════════════════════════════════
+-- MIGRATION: form builder persistence + auto-reply
+-- Run these if you already have the projects table
+-- ════════════════════════════════════════════
+-- alter table projects add column if not exists form_builder_config jsonb not null default '{}'::jsonb;
+-- alter table projects add column if not exists auto_reply_enabled boolean not null default false;
+-- alter table projects add column if not exists auto_reply_subject text not null default 'Thanks for reaching out — we''ll be in touch soon.';
+-- alter table projects add column if not exists auto_reply_body text not null default 'Hi {{from_name}},\n\nThanks for getting in touch. We''ll get back to you within one business day.\n\nBest,\nThe Team';
