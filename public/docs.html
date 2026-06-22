@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Documentation — Mini-EmailJS</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="stylesheet" href="app.css"/>
+  <style>
+    body { background: var(--bg-base); }
+    .docs-shell { display: flex; min-height: 100vh; }
+
+    /* Docs sidebar */
+    .docs-sidebar {
+      width: 240px; min-width: 240px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      padding: 0;
+      position: sticky; top: 0; height: 100vh;
+      overflow-y: auto; overflow-x: hidden;
+      flex-shrink: 0;
+    }
+    .docs-sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .docs-sidebar-brand {
+      font-size: 14px; font-weight: 700; color: var(--text-primary);
+    }
+    .docs-sidebar-brand span { color: var(--accent); }
+    .docs-nav { padding: 12px 0; }
+    .docs-nav-group { margin-bottom: 4px; }
+    .docs-nav-group-label {
+      font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: var(--text-tertiary); padding: 8px 20px 4px;
+    }
+    .docs-nav-item {
+      display: block; padding: 6px 20px;
+      font-size: 13.5px; color: var(--text-secondary);
+      cursor: pointer; transition: var(--ease);
+      border: none; background: none; width: 100%;
+      text-align: left; border-left: 2px solid transparent;
+      text-decoration: none;
+    }
+    .docs-nav-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+    .docs-nav-item.active { color: var(--accent); border-left-color: var(--accent); background: var(--accent-dim); }
+
+    /* Main docs content */
+    .docs-main {
+      flex: 1; min-width: 0;
+      padding: 48px max(24px, 4vw) 80px;
+      max-width: 780px;
+    }
+
+    /* Doc section */
+    .doc-section { margin-bottom: 64px; }
+    .doc-section h1 {
+      font-size: 26px; font-weight: 800;
+      letter-spacing: -0.5px; color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+    .doc-section h2 {
+      font-size: 18px; font-weight: 700;
+      letter-spacing: -0.3px; color: var(--text-primary);
+      margin: 36px 0 12px;
+      padding-top: 36px;
+      border-top: 1px solid var(--border);
+    }
+    .doc-section h2:first-of-type { margin-top: 24px; }
+    .doc-section h3 {
+      font-size: 14px; font-weight: 700;
+      color: var(--text-primary); margin: 20px 0 8px;
+    }
+    .doc-section p {
+      font-size: 14px; line-height: 1.75;
+      color: var(--text-secondary); margin-bottom: 14px;
+    }
+    .doc-section ul, .doc-section ol {
+      margin: 0 0 14px 20px;
+    }
+    .doc-section li {
+      font-size: 14px; line-height: 1.75;
+      color: var(--text-secondary); margin-bottom: 4px;
+    }
+    .doc-section code {
+      font-family: var(--font-mono); font-size: 12.5px;
+      background: var(--bg-elevated); border: 1px solid var(--border);
+      border-radius: 4px; padding: 2px 6px; color: var(--accent);
+    }
+    .doc-section pre {
+      background: var(--bg-base); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 16px;
+      font-family: var(--font-mono); font-size: 12.5px;
+      line-height: 1.7; color: var(--text-secondary);
+      overflow-x: auto; margin-bottom: 16px;
+      position: relative;
+    }
+    .doc-section pre code {
+      background: none; border: none; padding: 0;
+      color: var(--text-secondary); font-size: inherit;
+    }
+    .doc-section a { color: var(--accent); text-decoration: underline; }
+    .doc-section a:hover { color: var(--accent-dk); }
+
+    /* Callout boxes */
+    .callout {
+      border-radius: var(--radius); padding: 14px 16px;
+      margin-bottom: 16px; font-size: 13.5px; line-height: 1.6;
+    }
+    .callout.info { background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--text-primary); }
+    .callout.warning { background: var(--warning-dim); border: 1px solid rgba(251,191,36,0.3); color: var(--text-primary); }
+    .callout strong { font-weight: 700; }
+
+    /* Response table */
+    .response-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
+    .response-table th, .response-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .response-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-tertiary); background: var(--bg-elevated); }
+    .response-table td { color: var(--text-secondary); }
+    .response-table td code { font-size: 12px; }
+
+    /* Mobile */
+    @media (max-width: 700px) {
+      .docs-sidebar { display: none; }
+      .docs-main { padding: 28px 16px 60px; }
+    }
+
+    /* Topbar */
+    .docs-topbar {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(13,17,23,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 max(24px, 4vw);
+      height: 52px;
+      display: flex; align-items: center; justify-content: space-between;
+      grid-column: 1 / -1;
+    }
+    [data-theme="light"] .docs-topbar { background: rgba(248,250,252,0.85); }
+    .pre-copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      padding: 4px 10px; font-size: 11.5px; font-weight: 600;
+      color: var(--text-tertiary); background: var(--bg-elevated);
+      border: 1px solid var(--border-md); border-radius: var(--radius-sm);
+      cursor: pointer; transition: var(--ease);
+    }
+    .pre-copy-btn:hover { color: var(--text-primary); border-color: var(--border-lg); }
+    .pre-copy-btn.copied { color: var(--accent); border-color: var(--accent-border); }
+  </style>
+</head>
+<body>
+<div style="display:flex; flex-direction:column; min-height:100vh;">
+
+  <!-- Top bar -->
+  <div class="docs-topbar">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="sidebar-brand-icon" style="width:26px;height:26px;font-size:12px;">M</div>
+      <span style="font-size:14px;font-weight:700;color:var(--text-primary);">Mini<span style="color:var(--accent);">EmailJS</span></span>
+      <span style="color:var(--text-tertiary);font-size:13px;">/ Docs</span>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <button class="theme-toggle" id="theme-toggle" title="Toggle theme" style="border:1px solid var(--border);">
+        <svg id="theme-icon-dark" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z"/></svg>
+        <svg id="theme-icon-light" viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:none"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="1" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="15" y2="8"/></svg>
+      </button>
+      <a href="app.html" class="btn btn-secondary btn-sm">← Back to Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Shell -->
+  <div class="docs-shell">
+
+    <!-- Sidebar nav -->
+    <nav class="docs-sidebar">
+      <div class="docs-nav">
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-label">Getting Started</div>
+          <a class="docs-nav-item active" href="#introduction">Introduction</a>
+          <a class="docs-nav-item" href="#quickstart">Quick Start</a>
+          <a class="docs-nav-item" href="#how-it-works">How It Works</a>
+        </div>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-label">API Reference</div>
+          <a class="docs-nav-item" href="#send-endpoint">POST /api/send/:id</a>
+          <a class="docs-nav-item" href="#request-body">Request Body</a>
+          <a class="docs-nav-item" href="#responses">Responses</a>
+          <a class="docs-nav-item" href="#errors">Error Codes</a>
+        </div>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-label">Integration</div>
+          <a class="docs-nav-item" href="#javascript">JavaScript / Fetch</a>
+          <a class="docs-nav-item" href="#curl">cURL</a>
+          <a class="docs-nav-item" href="#python">Python</a>
+          <a class="docs-nav-item" href="#html-form">Plain HTML Form</a>
+        </div>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-label">Features</div>
+          <a class="docs-nav-item" href="#honeypot">Spam Protection</a>
+          <a class="docs-nav-item" href="#rate-limiting">Rate Limiting</a>
+          <a class="docs-nav-item" href="#auto-reply">Auto-Reply</a>
+          <a class="docs-nav-item" href="#allowed-origins">Allowed Origins</a>
+        </div>
+        <div class="docs-nav-group">
+          <div class="docs-nav-group-label">Security</div>
+          <a class="docs-nav-item" href="#api-keys">API Keys</a>
+          <a class="docs-nav-item" href="#rotating-keys">Rotating Keys</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="docs-main">
+
+      <!-- Introduction -->
+      <div class="doc-section" id="introduction">
+        <h1>Mini-EmailJS Docs</h1>
+        <p>Mini-EmailJS is a self-hosted transactional email platform for website contact forms. Connect any site's form to your own email inbox — using Resend or your own Gmail — with a single <code>fetch()</code> call.</p>
+        <p>Each website you connect is a <strong>project</strong>, with its own API endpoint, API key, email provider, submission log, and rate limits.</p>
+        <div class="callout info">
+          <strong>Self-hosted:</strong> You own the infrastructure, the data, and the email-sending credentials. No third-party dashboard. No monthly submission limits beyond your email provider's free tier.
+        </div>
+      </div>
+
+      <!-- Quick Start -->
+      <div class="doc-section" id="quickstart">
+        <h2>Quick Start</h2>
+        <h3>1. Create a project</h3>
+        <p>In the dashboard, click <strong>New Project</strong>. Give it a name, enter the email address where you want to receive notifications, choose a provider (Resend or Gmail SMTP), and click Create.</p>
+        <p>You'll land on the Integration Hub with your API endpoint and key ready to copy.</p>
+
+        <h3>2. Add the snippet to your site</h3>
+        <p>Use the Form Builder to generate a styled, ready-to-paste form, or wire up your existing form manually:</p>
+        <pre><button class="pre-copy-btn">Copy</button>const ENDPOINT = "https://your-deployment.vercel.app/api/send/your-project-id";
+const API_KEY  = "mek_your_api_key_here";
+
+document.getElementById('contact-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  data.apiKey = API_KEY;
+
+  const res = await fetch(ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  const result = await res.json();
+  if (result.ok) alert('Message sent!');
+});</pre>
+
+        <h3>3. Test it</h3>
+        <p>Fill out your form and submit. The notification email should arrive within seconds. Check <strong>Overview</strong> in the dashboard to see the submission logged.</p>
+      </div>
+
+      <!-- How it works -->
+      <div class="doc-section" id="how-it-works">
+        <h2>How It Works</h2>
+        <p>When your form submits, the browser sends a <code>POST</code> request to your deployment's <code>/api/send/:projectId</code> endpoint. The serverless function:</p>
+        <ol>
+          <li>Looks up the project in Supabase by <code>projectId</code></li>
+          <li>Validates the <code>apiKey</code> against the stored key</li>
+          <li>Checks the request origin against the project's allowed origins list</li>
+          <li>Checks the honeypot field — silently drops bot submissions</li>
+          <li>Enforces the per-IP rate limit</li>
+          <li>Renders the email subject from the project's subject template</li>
+          <li>Sends the notification email via the project's configured provider (Resend or Gmail SMTP)</li>
+          <li>Optionally sends an auto-reply confirmation to the submitter</li>
+          <li>Logs the submission (status, payload, IP, timestamp) to Supabase</li>
+        </ol>
+        <p>The entire flow is serverless — no persistent process, no server to maintain. Each form submission triggers a fresh function invocation on Vercel.</p>
+      </div>
+
+      <!-- Send endpoint -->
+      <div class="doc-section" id="send-endpoint">
+        <h2>POST /api/send/:projectId</h2>
+        <p>The only public-facing endpoint. Called directly from your website's form submission handler.</p>
+        <pre><button class="pre-copy-btn">Copy</button>POST https://your-deployment.vercel.app/api/send/{projectId}
+Content-Type: application/json</pre>
+        <p><code>projectId</code> is the URL slug you chose when creating the project (visible in the dashboard and Integration Hub).</p>
+      </div>
+
+      <!-- Request body -->
+      <div class="doc-section" id="request-body">
+        <h2>Request Body</h2>
+        <p>Send a JSON object. The only required field is <code>apiKey</code> — all other fields are your form's own data and will be included in the notification email exactly as submitted.</p>
+        <table class="response-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>apiKey</code></td><td>string</td><td>Yes</td><td>Your project's API key. Found in Integration Hub.</td></tr>
+            <tr><td><code>from_name</code></td><td>string</td><td>No</td><td>Submitter's name. Used in subject template and auto-reply.</td></tr>
+            <tr><td><code>email</code></td><td>string</td><td>No</td><td>Submitter's email. Used as Reply-To and for auto-reply delivery.</td></tr>
+            <tr><td><code>_gotcha</code></td><td>string</td><td>No</td><td>Honeypot field. Must be empty — bots often fill it in.</td></tr>
+            <tr><td>Any other field</td><td>any</td><td>No</td><td>Included in the notification email. Use any field names your form needs.</td></tr>
+          </tbody>
+        </table>
+        <pre><button class="pre-copy-btn">Copy</button>{
+  "apiKey":    "mek_your_key_here",
+  "from_name": "Jane Smith",
+  "email":     "jane@example.com",
+  "phone":     "+1 555 000 0000",
+  "message":   "Hi, I'd like to book a diagnostic session."
+}</pre>
+      </div>
+
+      <!-- Responses -->
+      <div class="doc-section" id="responses">
+        <h2>Responses</h2>
+        <table class="response-table">
+          <thead><tr><th>Status</th><th>Body</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>200</code></td><td><code>{"ok": true}</code></td><td>Submission accepted and email sent.</td></tr>
+            <tr><td><code>401</code></td><td><code>{"ok": false, "error": "Invalid API key."}</code></td><td>The <code>apiKey</code> field is missing or wrong.</td></tr>
+            <tr><td><code>403</code></td><td><code>{"ok": false, "error": "Origin not allowed."}</code></td><td>The request origin is not in the project's allowed origins list.</td></tr>
+            <tr><td><code>404</code></td><td><code>{"ok": false, "error": "Unknown or inactive project."}</code></td><td>The <code>projectId</code> in the URL doesn't exist or is paused.</td></tr>
+            <tr><td><code>429</code></td><td><code>{"ok": false, "error": "Too many submissions."}</code></td><td>This IP has exceeded the project's rate limit.</td></tr>
+            <tr><td><code>500</code></td><td><code>{"ok": false, "error": "Internal server error."}</code></td><td>Something went wrong server-side. Check Vercel function logs.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warning">
+          <strong>Note:</strong> A <code>200</code> response with <code>{"ok": true}</code> is also returned when a honeypot submission is silently dropped — this prevents bots from knowing their submission was blocked.
+        </div>
+      </div>
+
+      <!-- Error codes -->
+      <div class="doc-section" id="errors">
+        <h2>Error Codes</h2>
+        <p>All error responses follow the same shape: <code>{"ok": false, "error": "human-readable message"}</code>. Your form's submit handler should check <code>result.ok</code> and display <code>result.error</code> to the user if it's <code>false</code>.</p>
+      </div>
+
+      <!-- JavaScript -->
+      <div class="doc-section" id="javascript">
+        <h2>JavaScript / Fetch</h2>
+        <pre><button class="pre-copy-btn">Copy</button>const ENDPOINT = "https://your-deployment.vercel.app/api/send/your-project-id";
+const API_KEY  = "mek_your_api_key_here";
+
+async function submitForm(formData) {
+  const data = Object.fromEntries(formData.entries());
+  data.apiKey = API_KEY;
+
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await res.json();
+
+    if (result.ok) {
+      // Show success message to user
+      return { success: true };
+    } else {
+      // Show error message to user
+      return { success: false, error: result.error };
+    }
+  } catch (err) {
+    // Network error
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}</pre>
+      </div>
+
+      <!-- cURL -->
+      <div class="doc-section" id="curl">
+        <h2>cURL</h2>
+        <pre><button class="pre-copy-btn">Copy</button>curl -X POST "https://your-deployment.vercel.app/api/send/your-project-id" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apiKey":    "mek_your_key_here",
+    "from_name": "Jane Smith",
+    "email":     "jane@example.com",
+    "message":   "Hello from cURL!"
+  }'</pre>
+      </div>
+
+      <!-- Python -->
+      <div class="doc-section" id="python">
+        <h2>Python</h2>
+        <pre><button class="pre-copy-btn">Copy</button>import requests
+
+ENDPOINT = "https://your-deployment.vercel.app/api/send/your-project-id"
+API_KEY  = "mek_your_key_here"
+
+response = requests.post(ENDPOINT, json={
+    "apiKey":    API_KEY,
+    "from_name": "Jane Smith",
+    "email":     "jane@example.com",
+    "message":   "Hello from Python!"
+})
+
+result = response.json()
+if result.get("ok"):
+    print("Email sent successfully!")
+else:
+    print(f"Error: {result.get('error')}")</pre>
+      </div>
+
+      <!-- HTML Form -->
+      <div class="doc-section" id="html-form">
+        <h2>Plain HTML Form</h2>
+        <p>If you prefer not to use JavaScript, you can wire up a plain HTML form. Note that this approach doesn't give you a seamless single-page experience — the form will submit and the page will reload.</p>
+        <pre><button class="pre-copy-btn">Copy</button>&lt;form id="contact-form"&gt;
+  &lt;input type="text"  name="from_name" placeholder="Your name"    required/&gt;
+  &lt;input type="email" name="email"     placeholder="Your email"   required/&gt;
+  &lt;textarea           name="message"   placeholder="Your message" required&gt;&lt;/textarea&gt;
+
+  &lt;!-- Honeypot: hidden from users, bots often fill it in --&gt;
+  &lt;input type="text" name="_gotcha"
+    style="position:absolute;left:-9999px" tabindex="-1" autocomplete="off"/&gt;
+
+  &lt;button type="submit"&gt;Send&lt;/button&gt;
+  &lt;div id="form-status"&gt;&lt;/div&gt;
+&lt;/form&gt;
+
+&lt;script&gt;
+document.getElementById('contact-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const status = document.getElementById('form-status');
+  const data = Object.fromEntries(new FormData(e.target).entries());
+  data.apiKey = "mek_your_key_here";
+
+  status.textContent = 'Sending…';
+  const res    = await fetch("https://your-deployment.vercel.app/api/send/your-project-id", {
+    method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data),
+  });
+  const result = await res.json();
+  status.textContent = result.ok ? 'Message sent!' : 'Error: ' + result.error;
+});
+&lt;/script&gt;</pre>
+      </div>
+
+      <!-- Honeypot -->
+      <div class="doc-section" id="honeypot">
+        <h2>Spam Protection (Honeypot)</h2>
+        <p>Every project has a honeypot field configured (default: <code>_gotcha</code>). Add a hidden input with this name to your form — real users won't see or fill it, but many bots will.</p>
+        <pre><button class="pre-copy-btn">Copy</button>&lt;!-- Add this to your form --&gt;
+&lt;input type="text" name="_gotcha"
+  style="position:absolute;left:-9999px"
+  tabindex="-1" autocomplete="off"/&gt;</pre>
+        <p>When the honeypot field has a value, the submission is silently dropped — a <code>200 {"ok": true}</code> is returned to the bot so it doesn't retry.</p>
+        <div class="callout info">
+          <strong>Tip:</strong> The generated forms from the Form Builder include the honeypot field automatically.
+        </div>
+      </div>
+
+      <!-- Rate limiting -->
+      <div class="doc-section" id="rate-limiting">
+        <h2>Rate Limiting</h2>
+        <p>Each project has a configurable rate limit — the maximum number of submissions allowed per IP address per hour. The default is 20 per hour, which is generous for a typical contact form.</p>
+        <p>When the limit is exceeded, the endpoint returns <code>429 Too Many Requests</code>:</p>
+        <pre>{"ok": false, "error": "Too many submissions. Please try again later."}</pre>
+        <p>Adjust the rate limit in <strong>Project Settings</strong>.</p>
+      </div>
+
+      <!-- Auto-reply -->
+      <div class="doc-section" id="auto-reply">
+        <h2>Auto-Reply</h2>
+        <p>When enabled, the platform automatically sends a confirmation email to the form submitter after their submission is processed. Requires an <code>email</code> field to be present in the submission.</p>
+        <p>Configure auto-reply in the <strong>Automation</strong> section of your project. The subject and body support <code>{{field_name}}</code> placeholders:</p>
+        <pre>Subject: Thanks for reaching out, {{from_name}}!
+
+Body:
+Hi {{from_name}},
+
+Thanks for getting in touch. We've received your message
+and will get back to you within one business day.
+
+Best,
+The Team</pre>
+        <div class="callout warning">
+          <strong>Note:</strong> If the auto-reply fails (e.g. invalid email address), the main notification email is still sent and the submission is still logged. Auto-reply failures are non-blocking.
+        </div>
+      </div>
+
+      <!-- Allowed origins -->
+      <div class="doc-section" id="allowed-origins">
+        <h2>Allowed Origins</h2>
+        <p>You can restrict which websites are allowed to call your project's endpoint by setting the <strong>Allowed Origins</strong> field in Project Settings.</p>
+        <p>Enter a comma-separated list of origins without trailing slashes:</p>
+        <pre>https://example.com, https://www.example.com, https://staging.example.com</pre>
+        <p>Leave blank to allow requests from any origin (useful during testing, but tighten before going to production).</p>
+        <p>The comparison is case-sensitive and exact — <code>https://example.com</code> and <code>https://example.com/</code> are treated as the same (trailing slashes are automatically stripped).</p>
+      </div>
+
+      <!-- API keys -->
+      <div class="doc-section" id="api-keys">
+        <h2>API Keys</h2>
+        <p>Each project has a unique API key in the format <code>mek_</code> followed by 48 random hex characters. This key is required in every submission request as the <code>apiKey</code> field.</p>
+        <div class="callout warning">
+          <strong>Security note:</strong> Your API key will be visible in your website's client-side JavaScript — this is intentional and by design (the same model as EmailJS, Stripe's publishable key, etc.). The key only grants the ability to submit a form to that specific project. It cannot access your dashboard, view submissions, or modify project settings. Restrict the allowed origins to limit which sites can use it.
+        </div>
+      </div>
+
+      <!-- Rotating keys -->
+      <div class="doc-section" id="rotating-keys">
+        <h2>Rotating API Keys</h2>
+        <p>If you believe your API key has been compromised, rotate it immediately from the Integration Hub by clicking <strong>Regenerate Key</strong>. The old key stops working instantly.</p>
+        <p>After rotating, update the key in any website that was using the old one — otherwise their forms will start returning <code>401 Invalid API key</code> errors.</p>
+        <p>All submissions made with the old key before rotation remain in the submission log.</p>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// Theme
+(function() {
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  const d = document.getElementById('theme-icon-dark');
+  const l = document.getElementById('theme-icon-light');
+  if (d) d.style.display = saved === 'dark'  ? 'block' : 'none';
+  if (l) l.style.display = saved === 'light' ? 'block' : 'none';
+})();
+
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  document.getElementById('theme-icon-dark').style.display  = next === 'dark'  ? 'block' : 'none';
+  document.getElementById('theme-icon-light').style.display = next === 'light' ? 'block' : 'none';
+});
+
+// Active nav on scroll
+const sections = document.querySelectorAll('.doc-section[id]');
+const navItems = document.querySelectorAll('.docs-nav-item');
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      navItems.forEach(n => n.classList.toggle('active', n.getAttribute('href') === '#'+e.target.id));
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+
+// Smooth scroll for nav links
+navItems.forEach(item => {
+  item.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(item.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+
+// Copy buttons on code blocks
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show success';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.className = '', 2500);
+}
+
+document.querySelectorAll('.pre-copy-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const pre = btn.closest('pre');
+    const text = Array.from(pre.childNodes)
+      .filter(n => n.nodeType === Node.TEXT_NODE || (n.tagName !== 'BUTTON'))
+      .map(n => n.textContent).join('').trim();
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied!'; btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1500);
+      showToast('Copied to clipboard');
+    });
+  });
+});
+</script>
+</body>
+</html>

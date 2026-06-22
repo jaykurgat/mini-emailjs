@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mini-EmailJS</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="stylesheet" href="app.css"/>
+</head>
+<body>
+
+<!-- Mobile sidebar overlay -->
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<!-- Slide-over for submission detail -->
+<div class="slideover-overlay" id="slideover-overlay"></div>
+<aside class="slideover" id="submission-slideover">
+  <div class="slideover-header">
+    <span class="slideover-title">Submission Detail</span>
+    <button class="slideover-close" id="slideover-close">✕</button>
+  </div>
+  <div class="slideover-body" id="slideover-body"></div>
+</aside>
+
+<!-- App shell -->
+<div id="app">
+
+  <!-- ── SIDEBAR ── -->
+  <nav id="sidebar">
+
+    <!-- Brand -->
+    <div class="sidebar-header">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">M</div>
+        <span class="sidebar-brand-text">Mini<span>Email</span>JS</span>
+      </div>
+      <button class="sidebar-collapse-btn" id="collapse-btn" title="Toggle sidebar">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M10 12L6 8l4-4"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="sidebar-body">
+
+      <!-- Global nav -->
+      <div class="nav-section">
+        <div class="nav-section-label">Workspace</div>
+
+        <button class="nav-item" data-view="projects">
+          <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+          <span class="nav-label">All Projects</span>
+          <span class="nav-tooltip">All Projects</span>
+        </button>
+
+        <button class="nav-item" data-view="new-project">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="11"/><line x1="5" y1="8" x2="11" y2="8"/></svg>
+          <span class="nav-label">New Project</span>
+          <span class="nav-tooltip">New Project</span>
+        </button>
+
+        <a class="nav-item" href="docs.html" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16"><path d="M2 3h8l4 4v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3z"/><polyline points="10,3 10,7 14,7"/></svg>
+          <span class="nav-label">Documentation</span>
+          <span class="nav-tooltip">Documentation</span>
+        </a>
+
+        <button class="nav-item" data-view="account">
+          <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          <span class="nav-label">Account</span>
+          <span class="nav-tooltip">Account</span>
+        </button>
+      </div>
+
+      <!-- Project nav — hidden until a project is selected -->
+      <div id="project-nav" class="hidden">
+        <div class="nav-divider"></div>
+
+        <!-- Active project context -->
+        <div class="sidebar-project-ctx" id="project-ctx">
+          <div class="sidebar-project-ctx-label">Active Project</div>
+          <div class="flex-center" style="gap:6px;margin-top:2px;">
+            <div class="sidebar-project-ctx-dot"></div>
+            <div class="sidebar-project-ctx-name" id="ctx-project-name">—</div>
+          </div>
+        </div>
+
+        <div class="nav-section" style="margin-top:4px;">
+          <div class="nav-section-label">Project</div>
+
+          <button class="nav-item" data-view="overview">
+            <svg viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="9" rx="1"/><rect x="9" y="6" width="6" height="9" rx="1"/><rect x="1" y="12" width="6" height="3" rx="1"/><rect x="9" y="1" width="6" height="3" rx="1"/></svg>
+            <span class="nav-label">Overview</span>
+            <span class="nav-tooltip">Overview</span>
+          </button>
+
+          <button class="nav-item" data-view="integration">
+            <svg viewBox="0 0 16 16"><path d="M10 1l2 2-6 6-2-2 6-6z"/><path d="M6 10l-2 4 4-2"/><rect x="11" y="10" width="4" height="4" rx="1"/><path d="M11 12H8M10 14V11"/></svg>
+            <span class="nav-label">Integration Hub</span>
+            <span class="nav-tooltip">Integration Hub</span>
+          </button>
+
+          <button class="nav-item" data-view="automation">
+            <svg viewBox="0 0 16 16"><path d="M8 1v3M8 12v3M1 8h3M12 8h3"/><circle cx="8" cy="8" r="3"/><path d="M3.3 3.3l2.1 2.1M10.6 10.6l2.1 2.1M3.3 12.7l2.1-2.1M10.6 5.4l2.1-2.1"/></svg>
+            <span class="nav-label">Automation</span>
+            <span class="nav-tooltip">Automation</span>
+          </button>
+
+          <button class="nav-item" data-view="settings">
+            <svg viewBox="0 0 16 16"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/><path d="M13.3 10a1.2 1.2 0 0 0 .24 1.32l.04.04a1.46 1.46 0 0 1-2.06 2.06l-.04-.04a1.2 1.2 0 0 0-1.32-.24 1.2 1.2 0 0 0-.73 1.1V14.5a1.45 1.45 0 0 1-2.9 0v-.06a1.2 1.2 0 0 0-.79-1.1 1.2 1.2 0 0 0-1.32.24l-.04.04a1.46 1.46 0 0 1-2.06-2.06l.04-.04a1.2 1.2 0 0 0 .24-1.32 1.2 1.2 0 0 0-1.1-.73H1.5a1.45 1.45 0 0 1 0-2.9h.06a1.2 1.2 0 0 0 1.1-.79 1.2 1.2 0 0 0-.24-1.32l-.04-.04a1.46 1.46 0 0 1 2.06-2.06l.04.04a1.2 1.2 0 0 0 1.32.24h.06a1.2 1.2 0 0 0 .73-1.1V1.5a1.45 1.45 0 0 1 2.9 0v.06a1.2 1.2 0 0 0 .73 1.1 1.2 1.2 0 0 0 1.32-.24l.04-.04a1.46 1.46 0 0 1 2.06 2.06l-.04.04a1.2 1.2 0 0 0-.24 1.32v.06a1.2 1.2 0 0 0 1.1.73h.06a1.45 1.45 0 0 1 0 2.9h-.06a1.2 1.2 0 0 0-1.1.73z"/></svg>
+            <span class="nav-label">Settings</span>
+            <span class="nav-tooltip">Settings</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-row">
+        <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+          <svg id="theme-icon-dark" viewBox="0 0 16 16"><path d="M13.5 10.5A6 6 0 0 1 5.5 2.5a6 6 0 1 0 8 8z"/></svg>
+          <svg id="theme-icon-light" viewBox="0 0 16 16" style="display:none"><circle cx="8" cy="8" r="3"/><line x1="8" y1="1" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="15"/><line x1="1" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="15" y2="8"/><line x1="3.3" y1="3.3" x2="4.7" y2="4.7"/><line x1="11.3" y1="11.3" x2="12.7" y2="12.7"/><line x1="3.3" y1="12.7" x2="4.7" y2="11.3"/><line x1="11.3" y1="4.7" x2="12.7" y2="3.3"/></svg>
+        </button>
+        <button class="btn btn-ghost btn-sm" id="logout-btn" style="font-size:12px;">
+          <svg viewBox="0 0 16 16" width="13" height="13" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 14H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h3"/><polyline points="11,11 14,8 11,5"/><line x1="14" y1="8" x2="6" y2="8"/></svg>
+          <span class="nav-label">Sign out</span>
+        </button>
+      </div>
+    </div>
+
+  </nav>
+
+  <!-- ── MAIN ── -->
+  <div id="main">
+
+    <!-- Top bar -->
+    <header id="topbar">
+      <div class="topbar-title">
+        <button class="burger-btn" id="burger-btn">
+          <svg viewBox="0 0 16 16"><line x1="2" y1="4" x2="14" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/><line x1="2" y1="12" x2="14" y2="12"/></svg>
+        </button>
+        <span id="topbar-title-text">Dashboard</span>
+      </div>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </header>
+
+    <!-- Dynamic content -->
+    <div id="content"></div>
+
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+<script src="form-generator.js"></script>
+</body>
+</html>
