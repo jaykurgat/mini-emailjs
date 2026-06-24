@@ -1392,73 +1392,168 @@ async function viewDocs() {
   document.getElementById('topbar-actions').innerHTML = '';
   document.getElementById('content').innerHTML = `
     <div style="max-width:720px;">
+
       <div class="page-header">
-        <div class="page-title">Documentation</div>
-        <div class="page-subtitle">Everything you need to integrate Mini-EmailJS into any website.</div>
+        <div class="page-title">How to Use Mini-EmailJS</div>
+        <div class="page-subtitle">A simple guide for connecting any website's contact form to your inbox — no coding experience required.</div>
       </div>
-      <div class="card mb-12" id="doc-quickstart">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">Quick Start</h2>
-        <p style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;">1. Create a project from the sidebar. 2. Copy your endpoint and API key from Integration Hub. 3. Add this to your site:</p>
-        <div class="code-block" style="font-size:12px;">const res = await fetch("https://your-deployment.vercel.app/api/send/your-project-id", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    apiKey:    "mek_your_key",
-    from_name: "Jane Smith",
-    email:     "jane@example.com",
-    message:   "Hello!"
-  })
-});
-const result = await res.json(); // { ok: true }</div>
-      </div>
+
+      <!-- What is this? -->
       <div class="card mb-12">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">API Reference — POST /api/send/:projectId</h2>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
-            <tbody>
-              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">apiKey</code></td><td><span class="badge badge-error">Yes</span></td><td>Your project API key from Integration Hub</td></tr>
-              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">from_name</code></td><td>No</td><td>Submitter name — used in subject template</td></tr>
-              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">email</code></td><td>No</td><td>Submitter email — used for auto-reply</td></tr>
-              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">_gotcha</code></td><td>No</td><td>Honeypot — must be empty</td></tr>
-              <tr><td>Any other field</td><td>No</td><td>Included in notification email as-is</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="table-wrap mt-12">
-          <table>
-            <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
-            <tbody>
-              <tr><td><span class="badge badge-success">200 ok:true</span></td><td>Email sent successfully</td></tr>
-              <tr><td><span class="badge badge-error">401</span></td><td>Invalid API key</td></tr>
-              <tr><td><span class="badge badge-error">403</span></td><td>Origin not in allowed list</td></tr>
-              <tr><td><span class="badge badge-error">404</span></td><td>Project not found or paused</td></tr>
-              <tr><td><span class="badge badge-warning">429</span></td><td>Rate limit exceeded</td></tr>
-            </tbody>
-          </table>
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:10px;">What does Mini-EmailJS do?</h2>
+        <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:10px;">
+          When someone fills out a contact form on a website, Mini-EmailJS sends that message directly to your email inbox.
+          It works quietly in the background — the visitor clicks "Send", and you get an email notification with everything they wrote.
+        </p>
+        <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:0;">
+          Think of it as the "bridge" between a website's contact form and your Gmail inbox.
+          You own this bridge — no monthly limits, no third-party seeing your messages.
+        </p>
+      </div>
+
+      <!-- How it works simply -->
+      <div class="card mb-12">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">How it works — in plain English</h2>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          ${[
+            ['1', 'You create a "Project" here', 'A project represents one website or client. For example, you might have a project called "ApexOps Website" for your own site, and another called "Client XYZ Website" for a client.'],
+            ['2', 'You get a unique link and a secret key', 'Every project comes with its own API endpoint (a web address) and API key (a secret password). These two things together allow your website to securely send messages to your inbox.'],
+            ['3', 'You add a small snippet of code to the website', 'The Integration Hub gives you a ready-made piece of code to copy and paste into the website. You don\'t need to write any code yourself — just copy and paste.'],
+            ['4', 'Someone fills out the form on the website', 'When a visitor submits the contact form, the snippet sends their message to Mini-EmailJS behind the scenes.'],
+            ['5', 'You receive an email notification', 'Mini-EmailJS instantly sends you an email with everything the visitor typed — their name, email, message, and any other fields on the form.'],
+          ].map(([num, title, desc]) => `
+            <div style="display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${num}</div>
+              <div>
+                <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">${title}</div>
+                <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${desc}</div>
+              </div>
+            </div>`).join('')}
         </div>
       </div>
+
+      <!-- Step by step guide -->
       <div class="card mb-12">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">Spam Protection</h2>
-        <p style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;">Add a hidden honeypot field — bots fill it in and get silently dropped:</p>
-        <div class="code-block" style="font-size:12px;">&lt;input type="text" name="_gotcha" style="position:absolute;left:-9999px" tabindex="-1"/&gt;</div>
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">Step-by-step: Connecting your first website</h2>
+
+        <div style="border-left:2px solid var(--accent-border);padding-left:16px;display:flex;flex-direction:column;gap:20px;">
+
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 1 — Create a project</div>
+            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
+              Click <strong>New Project</strong> in the left sidebar. Fill in:
+            </p>
+            <ul style="margin:0 0 0 18px;padding:0;">
+              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Project name</strong> — give it a name you'll recognise, like "ApexOps Contact Form"</li>
+              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Notification email</strong> — the email address where you want to receive the messages (e.g. your Gmail)</li>
+              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Email provider</strong> — choose "Resend" if you just want it to work immediately, or "My own Gmail" if you want the emails to come from your own Gmail account</li>
+            </ul>
+            <p style="font-size:13px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">Click <strong>Create Project</strong> and you'll be taken to the Integration Hub automatically.</p>
+          </div>
+
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 2 — Build your form</div>
+            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
+              In the <strong>Integration Hub</strong>, scroll down to the <strong>Form Builder</strong> section. This is where you design your contact form without writing any code:
+            </p>
+            <ul style="margin:0 0 0 18px;padding:0;">
+              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Pick your fields</strong> — tick which information you want to collect (Name, Email, Phone, Message, etc.)</li>
+              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Choose a theme</strong> — Light, Dark, or Rounded. This controls how the form looks on the website</li>
+              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Add a heading</strong> — optional title shown above the form, like "Get in Touch"</li>
+            </ul>
+            <p style="font-size:13px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">You'll see a live preview updating as you make choices. When you're happy, click <strong>"Copy form code"</strong>.</p>
+          </div>
+
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 3 — Paste the code into the website</div>
+            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
+              Open the website's HTML file (for example <code style="font-family:var(--font-mono);font-size:12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent);">schedule.html</code> or <code style="font-family:var(--font-mono);font-size:12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent);">contact.html</code>) in a text editor and paste the copied code where you want the form to appear.
+            </p>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:0;">
+              If there was already a contact form there (like one from EmailJS), delete the old form first, then paste the new one in its place.
+            </p>
+          </div>
+
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 4 — Upload the website and test</div>
+            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
+              Save the file, commit and push to GitHub (using GitHub Desktop), and wait for the website to redeploy. Then visit the contact page, fill in the form, and click Send.
+            </p>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:0;">
+              Check your email inbox — you should receive the test message within a few seconds. You can also see it appear in the <strong>Overview</strong> section of this dashboard under "Recent Submissions".
+            </p>
+          </div>
+        </div>
       </div>
+
+      <!-- Troubleshooting -->
+      <div class="card mb-12">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">Common issues and fixes</h2>
+        <div style="display:flex;flex-direction:column;gap:0;">
+          ${[
+            [
+              'The form shows "Network error" when I submit',
+              'This usually means the website\'s domain hasn\'t been added to the Allowed Origins list. Go to Project Settings → Allowed Origins and add your website\'s address (e.g. https://yoursite.com). Make sure there\'s no trailing slash at the end.'
+            ],
+            [
+              'The form submits but I don\'t receive any email',
+              'Check the Overview page — if the submission shows "Error" status, it means the email sending failed. The most common cause is a Gmail App Password issue. Go to Supabase → Table Editor → projects → find your project → check the provider_config column has the correct password with no spaces.'
+            ],
+            [
+              'The form says "Invalid API key"',
+              'The API key in your form\'s code doesn\'t match the one stored for this project. Go to Integration Hub, copy the correct API key, and update it in the code on your website.'
+            ],
+            [
+              'Someone is spamming my form',
+              'Two protections are already built in: a honeypot trap (catches most bots automatically) and a rate limit (blocks the same person from submitting too many times per hour). You can lower the rate limit in Project Settings if needed.'
+            ],
+            [
+              'I want to send an automatic reply to people who contact me',
+              'Go to the Automation section of your project. Toggle on "Auto-Reply to Submitter" and write your message. Use {{from_name}} to automatically include the person\'s name. Your form must include an Email field for this to work.'
+            ],
+          ].map(([q, a]) => `
+            <div style="padding:14px 0;border-bottom:1px solid var(--border);">
+              <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">❓ ${q}</div>
+              <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">✅ ${a}</div>
+            </div>`).join('')}
+          <div style="padding:14px 0;">
+            <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">❓ How do I manage multiple client websites?</div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">✅ Create a separate project for each website. Each project has its own API key, its own form code, and its own submission history. Go to All Projects from the sidebar to see and switch between them.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Glossary -->
       <div class="card">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:8px;">Key Notes</h2>
-        <ul style="margin:0 0 0 18px;padding:0;">
-          <li style="font-size:13.5px;color:var(--text-secondary);margin-bottom:6px;">API keys are safe in client-side JS — they only allow form submissions, not dashboard access</li>
-          <li style="font-size:13.5px;color:var(--text-secondary);margin-bottom:6px;">Set Allowed Origins in Project Settings to restrict which sites can call your endpoint</li>
-          <li style="font-size:13.5px;color:var(--text-secondary);margin-bottom:6px;">If a key is compromised, rotate it instantly from Integration Hub → Regenerate Key</li>
-          <li style="font-size:13.5px;color:var(--text-secondary);">Auto-reply requires an <code style="color:var(--accent);font-family:var(--font-mono);">email</code> field in the submission — configure it in Automation</li>
-        </ul>
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">Glossary — what do these terms mean?</h2>
+        <div style="display:flex;flex-direction:column;gap:0;">
+          ${[
+            ['Project', 'One website or client connected to Mini-EmailJS. Each project has its own settings, form, and submission history.'],
+            ['API Endpoint', 'The unique web address that your website sends form data to. It looks like: https://mini-emailjs.vercel.app/api/send/your-project-name'],
+            ['API Key', 'A secret password that proves the request is coming from your website and not someone else. It starts with mek_ followed by a long string of letters and numbers. Keep it private.'],
+            ['Allowed Origins', 'The list of websites that are permitted to use your project\'s API key. This prevents other people from using your key on their own websites.'],
+            ['Rate Limit', 'A rule that limits how many times the same person can submit the form in one hour. This protects you from spam and abuse.'],
+            ['Honeypot', 'An invisible trap field in the form that only bots fill in. When it\'s filled in, the submission is silently ignored. Real users never see it.'],
+            ['Auto-Reply', 'An automatic email sent to the person who filled in the form, confirming you received their message.'],
+            ['Submission', 'One completed form entry. Every time someone fills in and submits the form, it creates a submission which is stored and visible in your Overview.'],
+            ['Provider', 'The email service used to send notifications. "Resend" works out of the box with no setup. "SMTP / Gmail" uses your own Gmail account to send emails.'],
+          ].map(([term, def]) => `
+            <div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;">
+              <div style="font-size:13px;font-weight:700;color:var(--accent);min-width:140px;flex-shrink:0;">${term}</div>
+              <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${def}</div>
+            </div>`).join('')}
+        </div>
       </div>
+
     </div>`;
 }
+
 // ═══════════════════════════════════════════════════════════
 // 13. VIEW: ACCOUNT SETTINGS
 // ═══════════════════════════════════════════════════════════
 
 async function viewAccount() {
+// ═══════════════════════════════════════════════════════════
   document.getElementById('topbar-actions').innerHTML = '';
 
   document.getElementById('content').innerHTML = `
