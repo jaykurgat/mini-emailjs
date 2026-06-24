@@ -119,6 +119,7 @@ async function renderView(view) {
     case 'projects':    await viewProjects(); break;
     case 'new-project': await viewNewProject(); break;
     case 'account':     await viewAccount(); break;
+case 'docs':        await viewDocs(); break;
     case 'overview':    await viewOverview(); break;
     case 'integration': await viewIntegration(); break;
     case 'automation':  await viewAutomation(); break;
@@ -142,6 +143,7 @@ function updateTopbar(view) {
     projects: 'All Projects',
     'new-project': 'New Project',
     account: 'Account Settings',
+docs: 'Documentation',
     overview: 'Overview',
     integration: 'Integration Hub',
     automation: 'Automation',
@@ -1386,7 +1388,72 @@ async function deleteProject() {
     showToast(error || 'Failed to delete.', 'error');
   }
 }
-
+async function viewDocs() {
+  document.getElementById('topbar-actions').innerHTML = '';
+  document.getElementById('content').innerHTML = `
+    <div style="max-width:720px;">
+      <div class="page-header">
+        <div class="page-title">Documentation</div>
+        <div class="page-subtitle">Everything you need to integrate Mini-EmailJS into any website.</div>
+      </div>
+      <div class="card mb-12" id="doc-quickstart">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">Quick Start</h2>
+        <p style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;">1. Create a project from the sidebar. 2. Copy your endpoint and API key from Integration Hub. 3. Add this to your site:</p>
+        <div class="code-block" style="font-size:12px;">const res = await fetch("https://your-deployment.vercel.app/api/send/your-project-id", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    apiKey:    "mek_your_key",
+    from_name: "Jane Smith",
+    email:     "jane@example.com",
+    message:   "Hello!"
+  })
+});
+const result = await res.json(); // { ok: true }</div>
+      </div>
+      <div class="card mb-12">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">API Reference — POST /api/send/:projectId</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Field</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">apiKey</code></td><td><span class="badge badge-error">Yes</span></td><td>Your project API key from Integration Hub</td></tr>
+              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">from_name</code></td><td>No</td><td>Submitter name — used in subject template</td></tr>
+              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">email</code></td><td>No</td><td>Submitter email — used for auto-reply</td></tr>
+              <tr><td><code style="color:var(--accent);font-family:var(--font-mono);">_gotcha</code></td><td>No</td><td>Honeypot — must be empty</td></tr>
+              <tr><td>Any other field</td><td>No</td><td>Included in notification email as-is</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="table-wrap mt-12">
+          <table>
+            <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-success">200 ok:true</span></td><td>Email sent successfully</td></tr>
+              <tr><td><span class="badge badge-error">401</span></td><td>Invalid API key</td></tr>
+              <tr><td><span class="badge badge-error">403</span></td><td>Origin not in allowed list</td></tr>
+              <tr><td><span class="badge badge-error">404</span></td><td>Project not found or paused</td></tr>
+              <tr><td><span class="badge badge-warning">429</span></td><td>Rate limit exceeded</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card mb-12">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">Spam Protection</h2>
+        <p style="font-size:13.5px;color:var(--text-secondary);margin-bottom:10px;">Add a hidden honeypot field — bots fill it in and get silently dropped:</p>
+        <div class="code-block" style="font-size:12px;">&lt;input type="text" name="_gotcha" style="position:absolute;left:-9999px" tabindex="-1"/&gt;</div>
+      </div>
+      <div class="card">
+        <h2 style="font-size:15px;font-weight:700;margin-bottom:8px;">Key Notes</h2>
+        <ul style="margin:0 0 0 18px;padding:0;">
+          <li style="font-size:13.5px;color:var(--text-secondary);margin-bottom:6px;">API keys are safe in client-side JS — they only allow form submissions, not dashboard access</li>
+          <li style="font-size:13.5px;color:var(--text-secondary);margin-bottom:6px;">Set Allowed Origins in Project Settings to restrict which sites can call your endpoint</li>
+          <li style="font-size:13.5px;color:var(--text-secondary);margin-bottom:6px;">If a key is compromised, rotate it instantly from Integration Hub → Regenerate Key</li>
+          <li style="font-size:13.5px;color:var(--text-secondary);">Auto-reply requires an <code style="color:var(--accent);font-family:var(--font-mono);">email</code> field in the submission — configure it in Automation</li>
+        </ul>
+      </div>
+    </div>`;
+}
 // ═══════════════════════════════════════════════════════════
 // 13. VIEW: ACCOUNT SETTINGS
 // ═══════════════════════════════════════════════════════════
