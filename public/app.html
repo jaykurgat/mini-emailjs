@@ -30,7 +30,7 @@
 
     <!-- Brand -->
     <div class="sidebar-header">
-      <div class="sidebar-brand">
+      <div class="sidebar-brand" onclick="navigate('projects')" style="cursor:pointer;" title="Home">
         <div class="sidebar-brand-icon">M</div>
         <span class="sidebar-brand-text">Mini<span>Email</span>JS</span>
       </div>
@@ -60,11 +60,11 @@
           <span class="nav-tooltip">New Project</span>
         </button>
 
-        <a class="nav-item" href="docs.html" target="_blank" rel="noopener">
+        <button class="nav-item" data-view="docs">
           <svg viewBox="0 0 16 16"><path d="M2 3h8l4 4v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3z"/><polyline points="10,3 10,7 14,7"/></svg>
           <span class="nav-label">Documentation</span>
           <span class="nav-tooltip">Documentation</span>
-        </a>
+        </button>
 
         <button class="nav-item" data-view="account">
           <svg viewBox="0 0 16 16"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
