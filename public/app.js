@@ -92,7 +92,6 @@ async function route() {
     if (!id && !STATE.projectId) { setHash('projects'); return; }
     const pid = id || STATE.projectId;
     if (pid !== STATE.projectId || !STATE.project) {
-      // Load project
       const { ok, project } = await api(`/api/projects/${encodeURIComponent(pid)}`);
       if (!ok) { setHash('projects'); return; }
       STATE.projectId = pid;
@@ -100,9 +99,8 @@ async function route() {
     }
     showProjectNav(STATE.project);
   } else {
-    if (!projectViews.includes(view)) {
-      // keep project ctx if we just navigated to a global view
-    }
+    // Global view — show workspace nav, hide project nav
+    showWorkspaceNav();
   }
 
   STATE.view = view;
@@ -159,9 +157,21 @@ docs: 'Documentation',
 }
 
 function showProjectNav(project) {
-  document.getElementById('project-nav').classList.remove('hidden');
+  // Hide workspace nav, show project nav
+  const workspaceNav = document.getElementById('workspace-nav');
+  const projectNav   = document.getElementById('project-nav');
+  if (workspaceNav) workspaceNav.classList.add('hidden');
+  if (projectNav)   projectNav.classList.remove('hidden');
   const nameEl = document.getElementById('ctx-project-name');
   if (nameEl) nameEl.textContent = project.name;
+}
+
+function showWorkspaceNav() {
+  // Hide project nav, show workspace nav
+  const workspaceNav = document.getElementById('workspace-nav');
+  const projectNav   = document.getElementById('project-nav');
+  if (workspaceNav) workspaceNav.classList.remove('hidden');
+  if (projectNav)   projectNav.classList.add('hidden');
 }
 
 function initSidebar() {
@@ -980,14 +990,14 @@ function renderCustomRows() {
   if (!container) return;
 
   container.innerHTML = _customRows.map(row => `
-    <div class="custom-field-row" data-id="${row.id}">
+    <div class="custom-field-row" data-id="${row.id}" style="margin-bottom:14px;">
       <div class="form-group" style="margin:0;">
-        <label class="form-label">Label</label>
+        <label class="form-label">Label <span style="color:var(--text-tertiary);font-weight:400;">(what the user sees)</span></label>
         <input type="text" class="cf-label" placeholder="e.g. Budget" value="${esc(row.label||'')}"/>
       </div>
       <div class="form-group" style="margin:0;">
-        <label class="form-label">Name (no spaces)</label>
-        <input type="text" class="cf-name" placeholder="e.g. budget" value="${esc(row.name||'')}"/>
+        <label class="form-label">Field name <span style="color:var(--text-tertiary);font-weight:400;">(auto-filled)</span></label>
+        <input type="text" class="cf-name" placeholder="auto" value="${esc(row.name||'')}"/>
       </div>
       <div class="form-group" style="margin:0;">
         <label class="form-label">Type</label>
@@ -999,10 +1009,14 @@ function renderCustomRows() {
           <option value="textarea" ${row.type==='textarea'?'selected':''}>Textarea</option>
         </select>
       </div>
-      <button class="remove-field-btn" data-id="${row.id}">×</button>
+      <button class="remove-field-btn" data-id="${row.id}" style="align-self:flex-end;margin-bottom:0;">×</button>
       ${row.type==='select' ? `
-      <div style="grid-column:1/-1;margin-top:-4px;">
+      <div style="grid-column:1/-1;">
+        <label class="form-label">Dropdown options</label>
         <input type="text" class="cf-options" placeholder="Option 1, Option 2, Option 3" value="${esc(row.options||'')}"/>
+        <div style="font-size:11.5px;color:var(--text-tertiary);margin-top:5px;">
+          💡 Type each option separated by a comma. Example: <em>Zoho, HubSpot, Salesforce, Other</em>
+        </div>
       </div>` : ''}
     </div>`).join('');
 
@@ -1013,16 +1027,21 @@ function renderCustomRows() {
     const ref = _customRows.find(r => r.id === id);
     if (!ref) return;
 
+    // BUG FIX: use 'input' event but always update the name field
+    // even mid-typing (not just when empty), so full name fills not just first char
     rowEl.querySelector('.cf-label')?.addEventListener('input', e => {
       ref.label = e.target.value;
       const nameEl = rowEl.querySelector('.cf-name');
-      if (nameEl && !nameEl.value) {
-        nameEl.value = e.target.value.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
-        ref.name = nameEl.value;
+      // Always auto-fill name from label (overwrite only if user hasn't manually edited it)
+      if (nameEl && !nameEl.dataset.manuallyEdited) {
+        const autoName = e.target.value.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
+        nameEl.value = autoName;
+        ref.name = autoName;
       }
       regenFormCode();
     });
     rowEl.querySelector('.cf-name')?.addEventListener('input', e => {
+      e.target.dataset.manuallyEdited = 'true';
       ref.name = e.target.value.replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'');
       e.target.value = ref.name;
       regenFormCode();
@@ -1061,8 +1080,11 @@ function regenFormCode() {
   const previewEl = document.getElementById('form-preview');
   if (!codeEl || !previewEl) return;
 
-  const customFields = _customRows.filter(r => r.label && r.name).map(r => ({
-    label: r.label, name: r.name, type: r.type,
+  // Use label as fallback name so preview shows even before name is filled
+  const customFields = _customRows.filter(r => r.label).map(r => ({
+    label: r.label,
+    name: r.name || r.label.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') || 'field',
+    type: r.type,
     options: r.type === 'select' ? (r.options||'').split(',').map(o=>o.trim()).filter(Boolean) : [],
   }));
 
@@ -1381,7 +1403,7 @@ async function deleteProject() {
   if (ok) {
     STATE.project = null;
     STATE.projectId = null;
-    document.getElementById('project-nav').classList.add('hidden');
+    showWorkspaceNav();
     showToast('Project deleted.', 'success');
     navigate('projects');
   } else {
@@ -1390,170 +1412,98 @@ async function deleteProject() {
 }
 async function viewDocs() {
   document.getElementById('topbar-actions').innerHTML = '';
-  document.getElementById('content').innerHTML = `
-    <div style="max-width:720px;">
 
-      <div class="page-header">
-        <div class="page-title">How to Use Mini-EmailJS</div>
-        <div class="page-subtitle">A simple guide for connecting any website's contact form to your inbox — no coding experience required.</div>
-      </div>
+  function row(t, d) {
+    return '<div style="padding:12px 0;border-bottom:1px solid var(--border);">' +
+      '<div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">' + t + '</div>' +
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">' + d + '</div></div>';
+  }
+  function card(title, body) {
+    return '<div class="card mb-12"><h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">' + title + '</h2>' + body + '</div>';
+  }
+  function step(n, t, d) {
+    return '<div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:14px;">' +
+      '<div style="width:28px;height:28px;min-width:28px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;">' + n + '</div>' +
+      '<div><div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">' + t + '</div>' +
+      '<div style="font-size:13px;color:var(--text-secondary);line-height:1.65;">' + d + '</div></div></div>';
+  }
+  function pill(t, d) {
+    return '<div style="padding:10px 14px;background:var(--bg-elevated);border-radius:var(--radius);border:1px solid var(--border);margin-bottom:8px;">' +
+      '<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">' + t + '</div>' +
+      '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.65;">' + d + '</div></div>';
+  }
+  function gloss(t, d) {
+    return '<div style="padding:10px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;">' +
+      '<div style="font-size:12.5px;font-weight:700;color:var(--accent);min-width:140px;flex-shrink:0;">' + t + '</div>' +
+      '<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.65;">' + d + '</div></div>';
+  }
 
-      <!-- What is this? -->
-      <div class="card mb-12">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:10px;">What does Mini-EmailJS do?</h2>
-        <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:10px;">
-          When someone fills out a contact form on a website, Mini-EmailJS sends that message directly to your email inbox.
-          It works quietly in the background — the visitor clicks "Send", and you get an email notification with everything they wrote.
-        </p>
-        <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:0;">
-          Think of it as the "bridge" between a website's contact form and your Gmail inbox.
-          You own this bridge — no monthly limits, no third-party seeing your messages.
-        </p>
-      </div>
+  var html = '<div style="max-width:720px;">' +
+    '<div class="page-header">' +
+      '<div class="page-title">How to Use Mini-EmailJS</div>' +
+      '<div class="page-subtitle">A plain-English guide — no coding experience needed.</div>' +
+    '</div>' +
 
-      <!-- How it works simply -->
-      <div class="card mb-12">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">How it works — in plain English</h2>
-        <div style="display:flex;flex-direction:column;gap:12px;">
-          ${[
-            ['1', 'You create a "Project" here', 'A project represents one website or client. For example, you might have a project called "ApexOps Website" for your own site, and another called "Client XYZ Website" for a client.'],
-            ['2', 'You get a unique link and a secret key', 'Every project comes with its own API endpoint (a web address) and API key (a secret password). These two things together allow your website to securely send messages to your inbox.'],
-            ['3', 'You add a small snippet of code to the website', 'The Integration Hub gives you a ready-made piece of code to copy and paste into the website. You don\'t need to write any code yourself — just copy and paste.'],
-            ['4', 'Someone fills out the form on the website', 'When a visitor submits the contact form, the snippet sends their message to Mini-EmailJS behind the scenes.'],
-            ['5', 'You receive an email notification', 'Mini-EmailJS instantly sends you an email with everything the visitor typed — their name, email, message, and any other fields on the form.'],
-          ].map(([num, title, desc]) => `
-            <div style="display:flex;gap:14px;align-items:flex-start;">
-              <div style="width:28px;height:28px;border-radius:50%;background:var(--accent-dim);border:1px solid var(--accent-border);color:var(--accent);font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${num}</div>
-              <div>
-                <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:3px;">${title}</div>
-                <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${desc}</div>
-              </div>
-            </div>`).join('')}
-        </div>
-      </div>
+    card('What does this platform do?',
+      '<p style="font-size:13.5px;color:var(--text-secondary);line-height:1.75;margin-bottom:8px;">When someone fills in a contact form on a website, Mini-EmailJS sends that message straight to your email inbox — automatically, within seconds. The visitor clicks Send and you get an email with everything they typed.</p>' +
+      '<p style="font-size:13.5px;color:var(--text-secondary);line-height:1.75;margin-bottom:0;">You own this system entirely. No third parties read your messages, no monthly limits, no subscriptions.</p>'
+    ) +
 
-      <!-- Step by step guide -->
-      <div class="card mb-12">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">Step-by-step: Connecting your first website</h2>
+    card('How it works',
+      step('1','Create a Project','Click New Project in the sidebar. Give it a name (like "My Business Website"), enter the email address where you want to receive notifications, and click Create.') +
+      step('2','Build your form','In Integration Hub, use the Form Builder to pick your fields and theme. Click Copy form code — no coding needed.') +
+      step('3','Add the form to your website','Paste the copied code into your website where you want the form to appear. How you do this depends on your website platform — see the guide below.') +
+      step('4','Someone submits the form','A visitor fills in and submits the form on your website.') +
+      step('5','You get an email','Mini-EmailJS instantly sends a notification email with everything the visitor typed.')
+    ) +
 
-        <div style="border-left:2px solid var(--accent-border);padding-left:16px;display:flex;flex-direction:column;gap:20px;">
+    card('Adding the form to your website',
+      '<p style="font-size:13.5px;color:var(--text-secondary);line-height:1.75;margin-bottom:12px;">Every website is different. Here is how to paste the form code depending on your setup:</p>' +
+      row('WordPress', 'In your page editor, add a "Custom HTML" block and paste the form code into it. Save and publish.') +
+      row('Website builders (Wix, Squarespace, Webflow, etc.)', 'Look for an "Embed" or "Custom HTML" element in your page editor. Paste the form code there. Check your builder\'s help centre if you cannot find it.') +
+      row('Plain HTML websites', 'Open your contact page file (e.g. contact.html) in a text editor. Paste the form code where you want it. Save the file and upload it to your hosting provider using their file manager or FTP.') +
+      row('Other hosting providers (cPanel, shared hosting, etc.)', 'Log into your hosting control panel, open File Manager, navigate to your website folder, and edit your contact page file there.') +
+      '<div style="padding:12px 0;font-size:13px;color:var(--text-secondary);line-height:1.7;"><strong style="color:var(--text-primary);">Not sure?</strong> Search your hosting provider\'s help centre for "how to edit an HTML file" — most have a simple guide.</div>'
+    ) +
 
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 1 — Create a project</div>
-            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
-              Click <strong>New Project</strong> in the left sidebar. Fill in:
-            </p>
-            <ul style="margin:0 0 0 18px;padding:0;">
-              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Project name</strong> — give it a name you'll recognise, like "ApexOps Contact Form"</li>
-              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Notification email</strong> — the email address where you want to receive the messages (e.g. your Gmail)</li>
-              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Email provider</strong> — choose "Resend" if you just want it to work immediately, or "My own Gmail" if you want the emails to come from your own Gmail account</li>
-            </ul>
-            <p style="font-size:13px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">Click <strong>Create Project</strong> and you'll be taken to the Integration Hub automatically.</p>
-          </div>
+    card('Using the Form Builder',
+      pill('Fields', 'Tick the information you want to collect — Name, Email, Phone, Message, etc. Fields marked * are required and cannot be removed.') +
+      pill('Custom Dropdown field', 'Add a custom field, choose "Dropdown" as the type, and a new box appears. Type your options separated by commas. Example: <em>Small business, Medium business, Enterprise</em>. Each item becomes one selectable option in the list.') +
+      pill('Theme', 'Choose Light, Dark, or Rounded. The Live Preview updates instantly as you make changes.') +
+      pill('Copy form code', 'Once happy with the preview, click this to copy the complete form code ready to paste into your website.') +
+      pill('Save config', 'Saves your current field choices and theme so the Form Builder remembers them next time you open this project.')
+    ) +
 
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 2 — Build your form</div>
-            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
-              In the <strong>Integration Hub</strong>, scroll down to the <strong>Form Builder</strong> section. This is where you design your contact form without writing any code:
-            </p>
-            <ul style="margin:0 0 0 18px;padding:0;">
-              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Pick your fields</strong> — tick which information you want to collect (Name, Email, Phone, Message, etc.)</li>
-              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Choose a theme</strong> — Light, Dark, or Rounded. This controls how the form looks on the website</li>
-              <li style="font-size:13px;color:var(--text-secondary);margin-bottom:4px;line-height:1.6;"><strong>Add a heading</strong> — optional title shown above the form, like "Get in Touch"</li>
-            </ul>
-            <p style="font-size:13px;color:var(--text-secondary);margin-top:6px;line-height:1.6;">You'll see a live preview updating as you make choices. When you're happy, click <strong>"Copy form code"</strong>.</p>
-          </div>
+    card('Common problems and solutions',
+      row('&#10067; "Network error" when submitting the form', '&#9989; The website address has not been added to Allowed Origins. Go to Project Settings, find Allowed Origins, and add your full website address (e.g. https://www.yourwebsite.com) with no slash at the end.') +
+      row('&#10067; Form submits but no email arrives', '&#9989; Check Overview — if the status shows Error, email sending failed. The most common cause is a Gmail App Password issue. Generate a new App Password (no spaces) and update it in Project Settings.') +
+      row('&#10067; "Invalid API key" error', '&#9989; The API key in the form code does not match this project. Copy the correct key from Integration Hub and update it in the code on your website.') +
+      row('&#10067; Receiving spam submissions', '&#9989; Two protections are already active: a hidden spam trap and a rate limit. If spam continues, lower the rate limit in Project Settings.') +
+      row('&#10067; How do I send an automatic reply to people who contact me', '&#9989; Go to Automation and switch on Auto-Reply. Write your message there. Use {{from_name}} to include the person\'s name automatically. The form must include an Email field.')
+    ) +
 
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 3 — Paste the code into the website</div>
-            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
-              Open the website's HTML file (for example <code style="font-family:var(--font-mono);font-size:12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent);">schedule.html</code> or <code style="font-family:var(--font-mono);font-size:12px;background:var(--bg-elevated);border:1px solid var(--border);border-radius:4px;padding:2px 6px;color:var(--accent);">contact.html</code>) in a text editor and paste the copied code where you want the form to appear.
-            </p>
-            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:0;">
-              If there was already a contact form there (like one from EmailJS), delete the old form first, then paste the new one in its place.
-            </p>
-          </div>
+    '<div class="card">' +
+      '<h2 style="font-size:15px;font-weight:700;margin-bottom:12px;">Glossary</h2>' +
+      gloss('Project', 'One website or client. Each has its own form, settings, and email history.') +
+      gloss('API Key', 'A secret code in your form that proves it belongs to your project. Starts with mek_. Do not share it publicly outside of your website code.') +
+      gloss('Allowed Origins', 'Website addresses permitted to use your form. Prevents others from using your form on their own sites. Leave blank during testing; add your site address before going live.') +
+      gloss('Rate Limit', 'Limits how many times one person can submit the form per hour. Protects against spam.') +
+      gloss('Spam Trap', 'A hidden field bots fill in automatically — their submissions get silently blocked. Real visitors never see it.') +
+      gloss('Auto-Reply', 'An automatic confirmation email sent to whoever fills in your form.') +
+      gloss('Provider', 'The email service sending your notifications. "Resend" works immediately. "Gmail / SMTP" uses your own Gmail account.') +
+      gloss('Submission', 'One completed form entry — stored in Overview with status, sender details, and timestamp.') +
+    '</div>' +
+  '</div>';
 
-          <div>
-            <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:4px;">STEP 4 — Upload the website and test</div>
-            <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px;">
-              Save the file, commit and push to GitHub (using GitHub Desktop), and wait for the website to redeploy. Then visit the contact page, fill in the form, and click Send.
-            </p>
-            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:0;">
-              Check your email inbox — you should receive the test message within a few seconds. You can also see it appear in the <strong>Overview</strong> section of this dashboard under "Recent Submissions".
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Troubleshooting -->
-      <div class="card mb-12">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">Common issues and fixes</h2>
-        <div style="display:flex;flex-direction:column;gap:0;">
-          ${[
-            [
-              'The form shows "Network error" when I submit',
-              'This usually means the website\'s domain hasn\'t been added to the Allowed Origins list. Go to Project Settings → Allowed Origins and add your website\'s address (e.g. https://yoursite.com). Make sure there\'s no trailing slash at the end.'
-            ],
-            [
-              'The form submits but I don\'t receive any email',
-              'Check the Overview page — if the submission shows "Error" status, it means the email sending failed. The most common cause is a Gmail App Password issue. Go to Supabase → Table Editor → projects → find your project → check the provider_config column has the correct password with no spaces.'
-            ],
-            [
-              'The form says "Invalid API key"',
-              'The API key in your form\'s code doesn\'t match the one stored for this project. Go to Integration Hub, copy the correct API key, and update it in the code on your website.'
-            ],
-            [
-              'Someone is spamming my form',
-              'Two protections are already built in: a honeypot trap (catches most bots automatically) and a rate limit (blocks the same person from submitting too many times per hour). You can lower the rate limit in Project Settings if needed.'
-            ],
-            [
-              'I want to send an automatic reply to people who contact me',
-              'Go to the Automation section of your project. Toggle on "Auto-Reply to Submitter" and write your message. Use {{from_name}} to automatically include the person\'s name. Your form must include an Email field for this to work.'
-            ],
-          ].map(([q, a]) => `
-            <div style="padding:14px 0;border-bottom:1px solid var(--border);">
-              <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">❓ ${q}</div>
-              <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">✅ ${a}</div>
-            </div>`).join('')}
-          <div style="padding:14px 0;">
-            <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:6px;">❓ How do I manage multiple client websites?</div>
-            <div style="font-size:13px;color:var(--text-secondary);line-height:1.7;">✅ Create a separate project for each website. Each project has its own API key, its own form code, and its own submission history. Go to All Projects from the sidebar to see and switch between them.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Glossary -->
-      <div class="card">
-        <h2 style="font-size:15px;font-weight:700;margin-bottom:14px;">Glossary — what do these terms mean?</h2>
-        <div style="display:flex;flex-direction:column;gap:0;">
-          ${[
-            ['Project', 'One website or client connected to Mini-EmailJS. Each project has its own settings, form, and submission history.'],
-            ['API Endpoint', 'The unique web address that your website sends form data to. It looks like: https://mini-emailjs.vercel.app/api/send/your-project-name'],
-            ['API Key', 'A secret password that proves the request is coming from your website and not someone else. It starts with mek_ followed by a long string of letters and numbers. Keep it private.'],
-            ['Allowed Origins', 'The list of websites that are permitted to use your project\'s API key. This prevents other people from using your key on their own websites.'],
-            ['Rate Limit', 'A rule that limits how many times the same person can submit the form in one hour. This protects you from spam and abuse.'],
-            ['Honeypot', 'An invisible trap field in the form that only bots fill in. When it\'s filled in, the submission is silently ignored. Real users never see it.'],
-            ['Auto-Reply', 'An automatic email sent to the person who filled in the form, confirming you received their message.'],
-            ['Submission', 'One completed form entry. Every time someone fills in and submits the form, it creates a submission which is stored and visible in your Overview.'],
-            ['Provider', 'The email service used to send notifications. "Resend" works out of the box with no setup. "SMTP / Gmail" uses your own Gmail account to send emails.'],
-          ].map(([term, def]) => `
-            <div style="padding:12px 0;border-bottom:1px solid var(--border);display:flex;gap:12px;align-items:flex-start;">
-              <div style="font-size:13px;font-weight:700;color:var(--accent);min-width:140px;flex-shrink:0;">${term}</div>
-              <div style="font-size:13px;color:var(--text-secondary);line-height:1.6;">${def}</div>
-            </div>`).join('')}
-        </div>
-      </div>
-
-    </div>`;
+  document.getElementById('content').innerHTML = html;
 }
 
-// ═══════════════════════════════════════════════════════════
+
+
 // 13. VIEW: ACCOUNT SETTINGS
 // ═══════════════════════════════════════════════════════════
 
 async function viewAccount() {
-// ═══════════════════════════════════════════════════════════
   document.getElementById('topbar-actions').innerHTML = '';
 
   document.getElementById('content').innerHTML = `
